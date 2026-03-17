@@ -176,9 +176,9 @@
         <option value="">— escolha —</option>
       </select>
     </div>
-    <div class="field" id="field-senha" hidden>
-      <label>Senha do administrador</label>
-      <input type="password" id="inp-senha" placeholder="Digite sua senha" autocomplete="off">
+    <div class="field" id="field-pin" hidden>
+      <label>PIN de acesso</label>
+      <input type="password" id="inp-pin" placeholder="••••" maxlength="4" inputmode="numeric" autocomplete="off" style="letter-spacing:6px;font-size:22px;text-align:center">
     </div>
     <button class="btn btn-primary btn-full" id="btn-enter" style="margin-top:8px">Entrar</button>
   </div>
@@ -248,23 +248,22 @@ const FIREBASE_CONFIG = {
   appId:             '1:969386948850:web:620ac7c1b93accd08d786b',
 };
 
-// Líderes — atualize com nomes reais; marque isAdmin: true para admins
+// Líderes — atualize os PINs antes de usar; isAdmin: true para admins
 const LEADERS = [
-  { id: 1,  name: 'Mayara Silva',      setor: 'Financeiro' },
-  { id: 2,  name: 'Bruno Maia',        setor: 'Operação Holter' },
-  { id: 3,  name: 'Danielle Felipe',   setor: 'Gente & Cultura', isAdmin: true },
-  { id: 4,  name: 'Renner Lariucci',   setor: 'Operação Holter' },
-  { id: 5,  name: 'Marco Bustamante',  setor: 'Gestão' },
-  { id: 6,  name: 'Gabriel de Paula',  setor: 'Gestão' },
-  { id: 7,  name: 'Vinicius Santos',   setor: 'Tecnologia da Informação' },
-  { id: 8,  name: 'Rodrigo Aramis',    setor: 'Comercial' },
-  { id: 9,  name: 'Aline Silveira',    setor: 'Educação' },
-  { id: 10, name: 'Barbara Braga',     setor: 'Sucesso do Cliente' },
+  { id: 1,  name: 'Mayara Silva',      setor: 'Financeiro',                pin: '1703' },
+  { id: 2,  name: 'Bruno Maia',        setor: 'Operação Holter',           pin: '2080' },
+  { id: 3,  name: 'Danielle Felipe',   setor: 'Gente & Cultura',           pin: '1511', isAdmin: true },
+  { id: 4,  name: 'Renner Lariucci',   setor: 'Operação Holter',           pin: '1606' },
+  { id: 5,  name: 'Marco Bustamante',  setor: 'Gestão',                    pin: '1742' },
+  { id: 6,  name: 'Gabriel de Paula',  setor: 'Gestão',                    pin: '1603' },
+  { id: 7,  name: 'Vinicius Santos',   setor: 'Tecnologia da Informação',  pin: '2317' },
+  { id: 8,  name: 'Rodrigo Aramis',    setor: 'Comercial',                 pin: '1744' },
+  { id: 9,  name: 'Aline Silveira',    setor: 'Educação',                  pin: '1305' },
+  { id: 10, name: 'Barbara Braga',     setor: 'Sucesso do Cliente',        pin: '8954' },
 ];
 
 const SETORES = [...new Set(LEADERS.map(l => l.setor))];
 const MAX_VOTES = 5;
-const ADMIN_PASSWORD = 'ecg2025'; // ← altere para a senha que preferir
 
 // ╔══════════════════════════════════════════════════════════╗
 //  FIREBASE INIT
@@ -779,22 +778,24 @@ LEADERS.forEach(l => {
   sel.appendChild(o);
 });
 
-// Mostrar campo de senha apenas quando admin é selecionado
+// Mostrar campo de PIN quando um líder é selecionado
 sel.addEventListener('change', () => {
   const leader = LEADERS.find(l => l.id === parseInt(sel.value));
-  const fieldSenha = $id('field-senha');
-  if (leader?.isAdmin) {
-    fieldSenha.hidden = false;
-    $id('inp-senha').focus();
+  const fieldPin = $id('field-pin');
+  if (leader) {
+    fieldPin.hidden = false;
+    $id('inp-pin').value = '';
+    $id('inp-pin').focus();
   } else {
-    fieldSenha.hidden = true;
-    $id('inp-senha').value = '';
+    fieldPin.hidden = true;
+    $id('inp-pin').value = '';
   }
 });
 
-// Permitir Enter no campo de senha
-$id('inp-senha').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') $id('btn-enter').click();
+// Entrar automaticamente ao digitar 4 dígitos
+$id('inp-pin').addEventListener('input', (e) => {
+  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
+  if (e.target.value.length === 4) $id('btn-enter').click();
 });
 
 $id('btn-enter').addEventListener('click', async () => {
@@ -808,11 +809,14 @@ $id('btn-enter').addEventListener('click', async () => {
 
   const leader = LEADERS.find(l => l.id === id);
 
-  // Validar senha do admin
-  if (leader?.isAdmin) {
-    const senha = $id('inp-senha').value;
-    if (!senha) { toast('Digite a senha de administrador.', 'err'); $id('inp-senha').focus(); return; }
-    if (senha !== ADMIN_PASSWORD) { toast('Senha incorreta.', 'err'); $id('inp-senha').value = ''; $id('inp-senha').focus(); return; }
+  // Validar PIN
+  const pin = $id('inp-pin').value;
+  if (!pin) { toast('Digite seu PIN de 4 dígitos.', 'err'); $id('inp-pin').focus(); return; }
+  if (pin !== leader.pin) {
+    toast('PIN incorreto.', 'err');
+    $id('inp-pin').value = '';
+    $id('inp-pin').focus();
+    return;
   }
 
   S.leader = leader;
