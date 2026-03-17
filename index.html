@@ -9,6 +9,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     :root{
@@ -429,9 +430,11 @@ async function renderAdmin() {
                                    <button class="btn btn-outline" id="btn-to-submissao">↩ Voltar para Submissão</button>`;
   if (f === 'encerrado')  btns += `<button class="btn btn-outline" id="btn-to-votacao">↩ Reabrir Votação</button>`;
   btns += `<button class="btn btn-accent" id="btn-pdf">⬇ Baixar PDF</button>`;
+  btns += `<button class="btn btn-outline" id="btn-excel">📊 Baixar Excel</button>`;
   $id('admin-actions').innerHTML = btns;
 
   $id('btn-pdf')?.addEventListener('click', downloadPDF);
+  $id('btn-excel')?.addEventListener('click', downloadExcel);
   $id('btn-to-votacao')?.addEventListener('click',    () => changePhase('votacao'));
   $id('btn-to-encerrado')?.addEventListener('click',  () => changePhase('encerrado'));
   $id('btn-to-submissao')?.addEventListener('click',  () => changePhase('submissao'));
@@ -655,6 +658,55 @@ function openModal(p) {
 
 $id('modal-close').addEventListener('click', () => hide('modal'));
 $id('modal').addEventListener('click', (e) => { if (e.target === $id('modal')) hide('modal'); });
+
+// ╔══════════════════════════════════════════════════════════╗
+//  EXCEL
+// ╚══════════════════════════════════════════════════════════╝
+async function downloadExcel() {
+  const voteCounts = await getVoteCounts();
+
+  const header = [
+    'Nº', 'Título', 'Setor Responsável', 'Cadastrado por', 'Setor do Líder',
+    'Descrição Resumida', 'Impacto Interno (Operacional)',
+    'Impacto Externo (Cliente / Mercado)', 'Custo Direto',
+    'Custo de Oportunidade', 'Votos', 'Data de Cadastro'
+  ];
+
+  const ordered = S.evento.fase === 'encerrado'
+    ? [...S.problemas].sort((a,b) => (voteCounts[b.id]||0) - (voteCounts[a.id]||0))
+    : S.problemas;
+
+  const rows = ordered.map((p, i) => [
+    i + 1,
+    p.titulo,
+    p.setor_responsavel,
+    p.leader_name,
+    p.setor_autor,
+    p.descricao_resumida,
+    p.impacto_interno,
+    p.impacto_externo,
+    p.custo_direto,
+    p.custo_oportunidade,
+    voteCounts[p.id] || 0,
+    new Date(p.created_at).toLocaleDateString('pt-BR'),
+  ]);
+
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+
+  // Largura das colunas
+  ws['!cols'] = [
+    { wch: 4 }, { wch: 35 }, { wch: 22 }, { wch: 20 }, { wch: 22 },
+    { wch: 45 }, { wch: 45 }, { wch: 45 }, { wch: 45 }, { wch: 45 },
+    { wch: 8 }, { wch: 16 },
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Problemas');
+
+  const filename = `pauta-${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  toast('Excel gerado!', 'ok');
+}
 
 // ╔══════════════════════════════════════════════════════════╗
 //  PDF
