@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pauta Estratégica · ECGNOW</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --p:#0D2B6B;--pd:#091E4D;--pl:#E8EDF8;
+      --a:#C49A2E;--al:#FBF3DC;
+      --bg:#F0F4F8;--card:#fff;
+      --text:#1A202C;--muted:#718096;--border:#E2E8F0;
+      --r:12px;--sh:0 2px 14px rgba(0,0,0,.08)
+    }
+    body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    h1,h2,h3,h4,h5{font-family:'Montserrat',sans-serif}
+    [hidden]{display:none!important}
+
+    /* ── Login ─────────────────────────────────────────── */
+    #view-login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .login-card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:48px 40px;width:100%;max-width:420px;text-align:center}
+    .brand{font-size:30px;font-weight:700;color:var(--p);margin-bottom:2px}
+    .brand span{color:var(--a)}
+    .brand-sub{font-size:14px;color:var(--muted);margin-bottom:36px;font-family:'Roboto',sans-serif;font-weight:400}
+
+    /* ── Forms ──────────────────────────────────────────── */
+    .field{margin-bottom:20px;text-align:left}
+    .field label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:6px}
+    .field input,.field select,.field textarea{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;font-family:'Roboto',sans-serif;font-size:15px;color:var(--text);background:#fff;transition:border-color .2s;outline:none}
+    .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--p)}
+    .field textarea{resize:vertical;min-height:90px;line-height:1.6}
+
+    /* ── Buttons ─────────────────────────────────────────── */
+    .btn{padding:11px 22px;border:none;border-radius:8px;font-family:'Montserrat',sans-serif;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:7px}
+    .btn-primary{background:var(--p);color:#fff}.btn-primary:hover{background:var(--pd)}
+    .btn-accent{background:var(--a);color:#fff}.btn-accent:hover{background:#a8851f}
+    .btn-outline{background:transparent;border:1.5px solid var(--p);color:var(--p)}.btn-outline:hover{background:var(--pl)}
+    .btn-ghost{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25)}.btn-ghost:hover{background:rgba(255,255,255,.22)}
+    .btn-danger{background:#FFF5F5;color:#C53030;border:1.5px solid #FED7D7}.btn-danger:hover{background:#FED7D7}
+    .btn-sm{padding:7px 14px;font-size:12px}
+    .btn-full{width:100%;justify-content:center}
+    .btn:disabled{opacity:.45;cursor:not-allowed}
+
+    /* ── Header ──────────────────────────────────────────── */
+    #app-header{background:var(--p);color:#fff;padding:0 28px;height:62px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 10px rgba(0,0,0,.18);position:sticky;top:0;z-index:100}
+    .header-brand{font-size:19px;font-weight:700}.header-brand span{color:var(--a)}
+    .header-right{display:flex;align-items:center;gap:12px}
+    .user-chip{background:rgba(255,255,255,.15);padding:5px 14px;border-radius:20px;font-size:13px;font-weight:500;line-height:1.3;text-align:right}
+    .user-chip small{display:block;font-size:11px;opacity:.75;font-weight:400}
+
+    /* ── Phase badge ─────────────────────────────────────── */
+    .fase-badge{padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-family:'Montserrat',sans-serif}
+    .fase-submissao{background:#FBF3DC;color:#8B6914}
+    .fase-votacao{background:#EBF8FF;color:#2B6CB0}
+    .fase-encerrado{background:#F0FFF4;color:#276749}
+
+    /* ── Main ────────────────────────────────────────────── */
+    #app-main{max-width:860px;margin:0 auto;padding:28px 20px}
+
+    /* ── Tabs ────────────────────────────────────────────── */
+    .tabs{display:flex;gap:4px;background:#E2E8F0;padding:4px;border-radius:10px;margin-bottom:24px}
+    .tab{flex:1;padding:9px 12px;border:none;background:transparent;border-radius:7px;font-family:'Montserrat',sans-serif;font-weight:600;font-size:13px;cursor:pointer;color:var(--muted);transition:all .2s}
+    .tab.active{background:#fff;color:var(--p);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+
+    /* ── Section header ──────────────────────────────────── */
+    .sec-title{font-size:21px;font-weight:700;margin-bottom:6px}
+    .sec-sub{font-size:14px;color:var(--muted);margin-bottom:22px}
+
+    /* ── Form card sections ──────────────────────────────── */
+    .form-block{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:26px;margin-bottom:14px}
+    .form-block-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--p);margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid var(--pl)}
+    .col2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+    /* ── My problems list ────────────────────────────────── */
+    .my-card{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:20px 22px;margin-bottom:12px;display:flex;align-items:flex-start;gap:16px}
+    .my-card-body{flex:1}
+    .my-card-title{font-size:16px;font-weight:600;margin-bottom:4px}
+    .my-card-meta{font-size:13px;color:var(--muted)}
+    .my-card-actions{display:flex;gap:8px;flex-shrink:0}
+    .num-badge{width:34px;height:34px;background:var(--pl);color:var(--p);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;margin-top:2px}
+
+    /* ── Vote counter bar ────────────────────────────────── */
+    #vote-bar{background:var(--pd);color:#fff;padding:9px 24px;text-align:center;font-size:14px;position:sticky;top:62px;z-index:90}
+    #vote-bar strong{font-family:'Montserrat',sans-serif;font-size:18px}
+
+    /* ── Vote cards ──────────────────────────────────────── */
+    .v-card{background:#fff;border-radius:var(--r);box-shadow:var(--sh);border:2px solid transparent;margin-bottom:14px;overflow:hidden;transition:border-color .2s}
+    .v-card.voted{border-color:var(--p)}
+    .v-card-head{padding:18px 22px 14px;cursor:pointer;display:flex;align-items:flex-start;gap:14px}
+    .v-card-head:hover{background:#FAFAFA}
+    .v-card-info{flex:1}
+    .v-card-title{font-size:16px;font-weight:600;margin-bottom:4px}
+    .v-card-meta{font-size:13px;color:var(--muted)}
+    .v-card-arrow{font-size:18px;color:var(--muted);margin-top:2px;flex-shrink:0;transition:transform .2s}
+    .v-card.open .v-card-arrow{transform:rotate(180deg)}
+    .v-card-body{padding:0 22px 18px;border-top:1px solid var(--border);display:none}
+    .v-card.open .v-card-body{display:block}
+    .v-card-footer{padding:12px 22px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+    .voted-label{background:var(--pl);color:var(--p);font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;font-family:'Montserrat',sans-serif}
+
+    /* ── Detail grid inside cards ────────────────────────── */
+    .dg{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+    .dg-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:5px}
+    .dg-value{font-size:14px;line-height:1.65;color:var(--text)}
+    .dg-full{grid-column:span 2}
+
+    /* ── Results ─────────────────────────────────────────── */
+    .res-card{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:18px 22px;margin-bottom:12px;display:flex;align-items:center;gap:18px}
+    .rank{font-size:26px;font-weight:700;color:var(--p);font-family:'Montserrat',sans-serif;min-width:38px}
+    .res-info{flex:1}
+    .res-title{font-size:16px;font-weight:600;margin-bottom:3px}
+    .res-meta{font-size:13px;color:var(--muted)}
+    .res-votes{text-align:right;min-width:70px}
+    .res-votes strong{display:block;font-size:26px;font-weight:700;color:var(--p);font-family:'Montserrat',sans-serif;line-height:1}
+    .res-votes small{font-size:11px;color:var(--muted)}
+    .progress{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:6px}
+    .progress-fill{height:100%;background:var(--p);border-radius:3px}
+    .res-rank-1 .rank{color:var(--a)}
+    .res-rank-1 .res-votes strong{color:var(--a)}
+
+    /* ── Admin panel ─────────────────────────────────────── */
+    #admin-panel{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:26px;margin-bottom:22px;border-left:4px solid var(--a)}
+    .admin-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .admin-title{font-size:15px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px}
+    .admin-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+    .stat{text-align:center;padding:14px;background:var(--bg);border-radius:8px}
+    .stat-n{font-size:28px;font-weight:700;color:var(--p);font-family:'Montserrat',sans-serif}
+    .stat-l{font-size:12px;color:var(--muted);margin-top:3px}
+    .admin-actions{display:flex;gap:10px;flex-wrap:wrap}
+
+    /* ── Toast ───────────────────────────────────────────── */
+    #toast{position:fixed;bottom:22px;right:22px;padding:13px 20px;border-radius:10px;font-size:14px;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,.15);z-index:999;transform:translateY(16px);opacity:0;transition:all .28s;pointer-events:none;max-width:320px}
+    #toast.show{transform:translateY(0);opacity:1}
+    #toast.ok{background:#276749;color:#fff}
+    #toast.err{background:#9B2335;color:#fff}
+    #toast.info{background:#2B6CB0;color:#fff}
+
+    /* ── Modal ───────────────────────────────────────────── */
+    #modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px}
+    #modal-box{background:#fff;border-radius:var(--r);width:100%;max-width:680px;max-height:88vh;overflow-y:auto;padding:30px}
+    .modal-title{font-size:20px;font-weight:700;color:var(--p);margin-bottom:22px}
+    .modal-close{float:right;background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1}
+
+    /* ── Chips ───────────────────────────────────────────── */
+    .chip{display:inline-block;padding:3px 11px;border-radius:20px;font-size:12px;font-weight:600}
+    .chip-p{background:var(--pl);color:var(--p)}
+    .chip-a{background:var(--al);color:#8B6914}
+
+    /* ── Loader ──────────────────────────────────────────── */
+    .loader{text-align:center;padding:56px 20px;color:var(--muted)}
+    .spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 14px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .empty{text-align:center;padding:48px 20px;color:var(--muted)}
+    .empty-icon{font-size:44px;margin-bottom:14px}
+    .empty-t{font-size:17px;font-weight:600;color:var(--text);margin-bottom:6px}
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LOGIN
+═══════════════════════════════════════════════════════════ -->
+<div id="view-login">
+  <div class="login-card">
+    <div class="brand">ECG<span>NOW</span></div>
+    <div class="brand-sub">Pauta Estratégica · Reunião de Líderes</div>
+    <div class="field">
+      <label>Selecione seu nome</label>
+      <select id="sel-leader">
+        <option value="">— escolha —</option>
+      </select>
+    </div>
+    <div class="field" id="field-senha" hidden>
+      <label>Senha do administrador</label>
+      <input type="password" id="inp-senha" placeholder="Digite sua senha" autocomplete="off">
+    </div>
+    <button class="btn btn-primary btn-full" id="btn-enter" style="margin-top:8px">Entrar</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     APP
+═══════════════════════════════════════════════════════════ -->
+<div id="view-app" hidden>
+
+  <header id="app-header">
+    <div class="header-brand">ECG<span>NOW</span></div>
+    <div class="header-right">
+      <div id="hdr-fase"></div>
+      <div class="user-chip" id="hdr-user"></div>
+      <button class="btn btn-ghost btn-sm" id="btn-logout">Sair</button>
+    </div>
+  </header>
+
+  <div id="vote-bar" hidden>
+    <strong id="vb-used">0</strong>/5 votos utilizados
+  </div>
+
+  <main id="app-main">
+    <div id="admin-panel" hidden>
+      <div class="admin-head">
+        <div class="admin-title">⚙️ Painel Admin</div>
+        <span id="admin-fase-badge"></span>
+      </div>
+      <div class="admin-stats">
+        <div class="stat"><div class="stat-n" id="st-probs">—</div><div class="stat-l">Problemas</div></div>
+        <div class="stat"><div class="stat-n" id="st-votes">—</div><div class="stat-l">Votos registrados</div></div>
+        <div class="stat"><div class="stat-n" id="st-leaders">—</div><div class="stat-l">Líderes votaram</div></div>
+      </div>
+      <div class="admin-actions" id="admin-actions"></div>
+    </div>
+    <div id="content-area"></div>
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL
+═══════════════════════════════════════════════════════════ -->
+<div id="modal" hidden>
+  <div id="modal-box">
+    <button class="modal-close" id="modal-close">×</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════════════ -->
+<script>
+// ╔══════════════════════════════════════════════════════════╗
+//  ⚙️  CONFIGURAÇÃO — cole aqui as credenciais do Firebase
+// ╚══════════════════════════════════════════════════════════╝
+const FIREBASE_CONFIG = {
+  apiKey:            'AIzaSyDwSba6GNoWqUM2QlNHyGFR8OlI_lp1BxA',
+  authDomain:        'ecgnow-pauta.firebaseapp.com',
+  databaseURL:       'https://ecgnow-pauta-default-rtdb.firebaseio.com',
+  projectId:         'ecgnow-pauta',
+  storageBucket:     'ecgnow-pauta.firebasestorage.app',
+  messagingSenderId: '969386948850',
+  appId:             '1:969386948850:web:620ac7c1b93accd08d786b',
+};
+
+// Líderes — atualize com nomes reais; marque isAdmin: true para admins
+const LEADERS = [
+  { id: 1,  name: 'Mayara Silva',      setor: 'Financeiro' },
+  { id: 2,  name: 'Bruno Maia',        setor: 'Operação Holter' },
+  { id: 3,  name: 'Danielle Felipe',   setor: 'Gente & Cultura', isAdmin: true },
+  { id: 4,  name: 'Renner Lariucci',   setor: 'Operação Holter' },
+  { id: 5,  name: 'Marco Bustamante',  setor: 'Gestão' },
+  { id: 6,  name: 'Gabriel de Paula',  setor: 'Gestão' },
+  { id: 7,  name: 'Vinicius Santos',   setor: 'Tecnologia da Informação' },
+  { id: 8,  name: 'Rodrigo Aramis',    setor: 'Comercial' },
+  { id: 9,  name: 'Aline Silveira',    setor: 'Educação' },
+  { id: 10, name: 'Barbara Braga',     setor: 'Sucesso do Cliente' },
+];
+
+const SETORES = [...new Set(LEADERS.map(l => l.setor))];
+const MAX_VOTES = 5;
+const ADMIN_PASSWORD = 'ecg2025'; // ← altere para a senha que preferir
+
+// ╔══════════════════════════════════════════════════════════╗
+//  FIREBASE INIT
+// ╚══════════════════════════════════════════════════════════╝
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.database();
+
+// ╔══════════════════════════════════════════════════════════╗
+//  ESTADO
+// ╚══════════════════════════════════════════════════════════╝
+let S = { leader: null, evento: null, problemas: [], myVotos: [] };
+
+// ╔══════════════════════════════════════════════════════════╗
+//  UTILIDADES
+// ╚══════════════════════════════════════════════════════════╝
+function $id(id){ return document.getElementById(id) }
+function show(id){ $id(id).hidden = false }
+function hide(id){ $id(id).hidden = true }
+
+let toastTimer;
+function toast(msg, type = 'ok') {
+  const el = $id('toast');
+  el.className = `${type} show`;
+  el.textContent = msg;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+function fmtDate(ts){ return new Date(ts).toLocaleDateString('pt-BR') }
+function phaseLabel(f){ return { submissao:'Submissão', votacao:'Votação', encerrado:'Encerrado' }[f] || f }
+function phaseCss(f){ return { submissao:'fase-submissao', votacao:'fase-votacao', encerrado:'fase-encerrado' }[f] || '' }
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+// ╔══════════════════════════════════════════════════════════╗
+//  FIREBASE — LEITURA
+// ╚══════════════════════════════════════════════════════════╝
+async function loadEvento() {
+  const snap = await db.ref('evento').get();
+  if (!snap.exists()) {
+    const novo = {
+      nome: 'Reunião de Líderes · ' + new Date().toLocaleDateString('pt-BR', { month:'2-digit', year:'numeric' }),
+      fase: 'submissao',
+    };
+    await db.ref('evento').set(novo);
+    S.evento = novo;
+  } else {
+    S.evento = snap.val();
+  }
+}
+
+async function loadProblemas() {
+  const snap = await db.ref('problemas').get();
+  S.problemas = [];
+  if (snap.exists()) {
+    snap.forEach(child => S.problemas.push({ id: child.key, ...child.val() }));
+    S.problemas.sort((a, b) => a.created_at - b.created_at);
+  }
+}
+
+async function loadMyVotos() {
+  const snap = await db.ref('votos').get();
+  S.myVotos = [];
+  if (snap.exists()) {
+    snap.forEach(child => {
+      const v = child.val();
+      if (v.leader_id === S.leader.id) S.myVotos.push({ id: child.key, ...v });
+    });
+  }
+}
+
+async function loadAdminStats() {
+  const [pSnap, vSnap] = await Promise.all([
+    db.ref('problemas').get(),
+    db.ref('votos').get(),
+  ]);
+  const leaderSet = new Set();
+  let votoCount = 0;
+  if (vSnap.exists()) {
+    vSnap.forEach(c => { votoCount++; leaderSet.add(c.val().leader_id); });
+  }
+  $id('st-probs').textContent  = pSnap.exists() ? pSnap.numChildren() : 0;
+  $id('st-votes').textContent  = votoCount;
+  $id('st-leaders').textContent = leaderSet.size;
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  FIREBASE — ESCRITA
+// ╚══════════════════════════════════════════════════════════╝
+async function submitProblem(data) {
+  await db.ref('problemas').push({
+    ...data,
+    leader_id:   S.leader.id,
+    leader_name: S.leader.name,
+    setor_autor: S.leader.setor,
+    created_at:  Date.now(),
+  });
+}
+
+async function deleteProblem(id) {
+  const snap = await db.ref(`problemas/${id}`).get();
+  if (snap.exists() && snap.val().leader_id === S.leader.id) {
+    await db.ref(`problemas/${id}`).remove();
+    // Remove votos deste problema
+    const vSnap = await db.ref('votos').get();
+    if (vSnap.exists()) {
+      const updates = {};
+      vSnap.forEach(c => { if (c.val().problema_id === id) updates[c.key] = null; });
+      if (Object.keys(updates).length) await db.ref('votos').update(updates);
+    }
+  }
+}
+
+async function toggleVote(problemaId) {
+  const voteKey = `${S.leader.id}_${problemaId}`;
+  const snap = await db.ref(`votos/${voteKey}`).get();
+  if (snap.exists()) {
+    await db.ref(`votos/${voteKey}`).remove();
+    S.myVotos = S.myVotos.filter(v => v.id !== voteKey);
+  } else {
+    if (S.myVotos.length >= MAX_VOTES) { toast(`Você já usou ${MAX_VOTES} votos.`, 'err'); return false; }
+    await db.ref(`votos/${voteKey}`).set({ leader_id: S.leader.id, problema_id: problemaId, created_at: Date.now() });
+    S.myVotos.push({ id: voteKey, leader_id: S.leader.id, problema_id: problemaId });
+  }
+  return true;
+}
+
+async function updateFase(fase) {
+  await db.ref('evento/fase').set(fase);
+  S.evento.fase = fase;
+}
+
+async function getVoteCounts() {
+  const snap = await db.ref('votos').get();
+  const counts = {};
+  if (snap.exists()) snap.forEach(c => {
+    const pid = c.val().problema_id;
+    counts[pid] = (counts[pid] || 0) + 1;
+  });
+  return counts;
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  RENDER — CABEÇALHO
+// ╚══════════════════════════════════════════════════════════╝
+function renderHeader() {
+  $id('hdr-user').innerHTML = `${escHtml(S.leader.name)}<small>${escHtml(S.leader.setor)}</small>`;
+  $id('hdr-fase').innerHTML = `<span class="fase-badge ${phaseCss(S.evento.fase)}">${phaseLabel(S.evento.fase)}</span>`;
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  RENDER — ADMIN
+// ╚══════════════════════════════════════════════════════════╝
+async function renderAdmin() {
+  if (!S.leader.isAdmin) { hide('admin-panel'); return; }
+  show('admin-panel');
+  $id('admin-fase-badge').innerHTML = `<span class="fase-badge ${phaseCss(S.evento.fase)}">${phaseLabel(S.evento.fase)}</span>`;
+  await loadAdminStats();
+
+  const f = S.evento.fase;
+  let btns = '';
+  if (f === 'submissao')  btns += `<button class="btn btn-primary" id="btn-to-votacao">▶ Abrir Votação</button>`;
+  if (f === 'votacao')    btns += `<button class="btn btn-accent" id="btn-to-encerrado">🔒 Encerrar Votação</button>
+                                   <button class="btn btn-outline" id="btn-to-submissao">↩ Voltar para Submissão</button>`;
+  if (f === 'encerrado')  btns += `<button class="btn btn-outline" id="btn-to-votacao">↩ Reabrir Votação</button>`;
+  btns += `<button class="btn btn-accent" id="btn-pdf">⬇ Baixar PDF</button>`;
+  $id('admin-actions').innerHTML = btns;
+
+  $id('btn-pdf')?.addEventListener('click', downloadPDF);
+  $id('btn-to-votacao')?.addEventListener('click',    () => changePhase('votacao'));
+  $id('btn-to-encerrado')?.addEventListener('click',  () => changePhase('encerrado'));
+  $id('btn-to-submissao')?.addEventListener('click',  () => changePhase('submissao'));
+}
+
+async function changePhase(fase) {
+  try { await updateFase(fase); toast(`Fase: ${phaseLabel(fase)}`, 'ok'); await refresh(); }
+  catch(e) { toast('Erro ao alterar fase.', 'err'); }
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  RENDER — SUBMISSÃO
+// ╚══════════════════════════════════════════════════════════╝
+function renderSubmissao() {
+  hide('vote-bar');
+  const mine = S.problemas.filter(p => p.leader_id === S.leader.id);
+  $id('content-area').innerHTML = `
+    <div class="tabs">
+      <button class="tab active" data-tab="cadastrar">✏️ Cadastrar Problema</button>
+      <button class="tab" data-tab="meus">📋 Meus Problemas (${mine.length})</button>
+    </div>
+    <div id="tab-cadastrar">${renderForm()}</div>
+    <div id="tab-meus" hidden>${renderMyProblems(mine)}</div>`;
+
+  document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    ['cadastrar','meus'].forEach(t => $id(`tab-${t}`).hidden = (t !== btn.dataset.tab));
+  }));
+
+  $id('form-problem')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target, btn = f.querySelector('[type=submit]');
+    btn.disabled = true; btn.textContent = 'Salvando…';
+    try {
+      await submitProblem({
+        titulo:             f.titulo.value.trim(),
+        setor_responsavel:  f.setor_responsavel.value,
+        descricao_resumida: f.descricao_resumida.value.trim(),
+        impacto_interno:    f.impacto_interno.value.trim(),
+        impacto_externo:    f.impacto_externo.value.trim(),
+        custo_direto:       f.custo_direto.value.trim(),
+        custo_oportunidade: f.custo_oportunidade.value.trim(),
+      });
+      toast('Problema cadastrado!', 'ok');
+      await loadProblemas(); renderSubmissao();
+    } catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Salvar Problema'; }
+  });
+
+  document.querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', async () => {
+    if (!confirm('Remover este problema?')) return;
+    try { await deleteProblem(btn.dataset.delete); toast('Removido.', 'info'); await loadProblemas(); renderSubmissao(); }
+    catch(e) { toast('Erro ao remover.', 'err'); }
+  }));
+
+  document.querySelectorAll('[data-view]').forEach(btn =>
+    btn.addEventListener('click', () => openModal(S.problemas.find(p => p.id === btn.dataset.view))));
+}
+
+function renderForm() {
+  const opts = SETORES.map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('');
+  return `
+  <form id="form-problem">
+    <div class="form-block">
+      <div class="form-block-title">Identificação e Contexto</div>
+      <div class="field"><label>Título do Problema *</label><input name="titulo" required placeholder="Um nome claro e objetivo"></div>
+      <div class="field"><label>Setor Responsável *</label>
+        <select name="setor_responsavel" required><option value="">— selecione —</option>${opts}</select></div>
+      <div class="field"><label>Descrição Resumida *</label>
+        <textarea name="descricao_resumida" required placeholder="O que está acontecendo, com que frequência e onde o processo trava?"></textarea></div>
+    </div>
+    <div class="form-block">
+      <div class="form-block-title">Análise de Impacto</div>
+      <div class="field"><label>Impacto Interno (Operacional) *</label>
+        <textarea name="impacto_interno" required placeholder="Como afeta o clima, a produtividade ou gera retrabalho?"></textarea></div>
+      <div class="field"><label>Impacto Externo (Cliente / Mercado) *</label>
+        <textarea name="impacto_externo" required placeholder="Como chega no cliente final? Afeta qualidade, prazo ou percepção da marca?"></textarea></div>
+    </div>
+    <div class="form-block">
+      <div class="form-block-title">Impacto Econômico</div>
+      <div class="field"><label>Custo Direto *</label>
+        <textarea name="custo_direto" required placeholder="Desperdício de material, multas, horas extras…"></textarea></div>
+      <div class="field"><label>Custo de Oportunidade *</label>
+        <textarea name="custo_oportunidade" required placeholder="O que a empresa deixa de ganhar porque esse problema existe?"></textarea></div>
+    </div>
+    <button type="submit" class="btn btn-primary">💾 Salvar Problema</button>
+  </form>`;
+}
+
+function renderMyProblems(list) {
+  if (!list.length) return `<div class="empty"><div class="empty-icon">📭</div><div class="empty-t">Nenhum problema cadastrado.</div><p>Use a aba "Cadastrar Problema" para adicionar.</p></div>`;
+  return list.map((p,i) => `
+    <div class="my-card">
+      <div class="num-badge">${i+1}</div>
+      <div class="my-card-body">
+        <div class="my-card-title">${escHtml(p.titulo)}</div>
+        <div class="my-card-meta"><span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · ${fmtDate(p.created_at)}</div>
+      </div>
+      <div class="my-card-actions">
+        <button class="btn btn-outline btn-sm" data-view="${p.id}">Ver</button>
+        <button class="btn btn-danger btn-sm" data-delete="${p.id}">Remover</button>
+      </div>
+    </div>`).join('');
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  RENDER — VOTAÇÃO
+// ╚══════════════════════════════════════════════════════════╝
+function renderVotacao() {
+  show('vote-bar'); updateVoteBar();
+  $id('content-area').innerHTML = `
+    <div class="sec-title">Vote nos problemas mais críticos</div>
+    <div class="sec-sub">Escolha até ${MAX_VOTES} problemas. Clique no card para ver os detalhes.</div>
+    <div id="problems-list">${renderVoteCards()}</div>`;
+  bindVoteCards();
+}
+
+function renderVoteCards() {
+  if (!S.problemas.length) return `<div class="empty"><div class="empty-icon">📋</div><div class="empty-t">Nenhum problema cadastrado.</div></div>`;
+  return S.problemas.map((p,i) => {
+    const voted = S.myVotos.some(v => v.problema_id === p.id);
+    return `
+    <div class="v-card${voted?' voted':''}" data-id="${p.id}">
+      <div class="v-card-head">
+        <div class="num-badge">${i+1}</div>
+        <div class="v-card-info">
+          <div class="v-card-title">${escHtml(p.titulo)}</div>
+          <div class="v-card-meta"><span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · ${escHtml(p.leader_name)} · ${escHtml(p.setor_autor)}</div>
+        </div>
+        <div class="v-card-arrow">▾</div>
+      </div>
+      <div class="v-card-body">${detailGrid(p)}</div>
+      <div class="v-card-footer">
+        ${voted ? '<span class="voted-label">✓ Votado</span>' : '<span></span>'}
+        <button class="btn ${voted?'btn-danger':'btn-primary'} btn-sm vote-btn" data-vote="${p.id}">
+          ${voted ? '✕ Remover voto' : '✓ Votar neste problema'}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function bindVoteCards() {
+  document.querySelectorAll('.v-card-head').forEach(h => h.addEventListener('click', (e) => {
+    if (e.target.closest('.vote-btn')) return;
+    const card = h.closest('.v-card');
+    card.classList.toggle('open');
+    card.querySelector('.v-card-body').style.display = card.classList.contains('open') ? 'block' : 'none';
+  }));
+
+  document.querySelectorAll('.vote-btn').forEach(btn => btn.addEventListener('click', async (e) => {
+    e.stopPropagation(); btn.disabled = true;
+    try {
+      const ok = await toggleVote(btn.dataset.vote);
+      if (ok) { updateVoteBar(); $id('problems-list').innerHTML = renderVoteCards(); bindVoteCards(); }
+    } catch(err) { toast('Erro ao registrar voto.', 'err'); }
+    btn.disabled = false;
+  }));
+}
+
+function updateVoteBar() { $id('vb-used').textContent = S.myVotos.length; }
+
+// ╔══════════════════════════════════════════════════════════╗
+//  RENDER — ENCERRADO
+// ╚══════════════════════════════════════════════════════════╝
+async function renderEncerrado() {
+  hide('vote-bar');
+  const counts = await getVoteCounts();
+  const ranked = [...S.problemas].sort((a,b) => (counts[b.id]||0) - (counts[a.id]||0));
+  const max = counts[ranked[0]?.id] || 1;
+
+  const cards = ranked.map((p,i) => {
+    const v = counts[p.id] || 0;
+    return `
+    <div class="res-card ${i===0?'res-rank-1':''}">
+      <div class="rank">${i===0?'🥇':`#${i+1}`}</div>
+      <div class="res-info">
+        <div class="res-title">${escHtml(p.titulo)}</div>
+        <div class="res-meta"><span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · ${escHtml(p.leader_name)}</div>
+        <div class="progress"><div class="progress-fill" style="width:${Math.round((v/max)*100)}%"></div></div>
+      </div>
+      <div class="res-votes"><strong>${v}</strong><small>votos</small></div>
+    </div>`;
+  }).join('');
+
+  $id('content-area').innerHTML = `
+    <div class="sec-title">Resultado da Votação</div>
+    <div class="sec-sub">${escHtml(S.evento.nome)}</div>
+    ${cards}`;
+
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  DETALHE — grid de campos
+// ╚══════════════════════════════════════════════════════════╝
+function detailGrid(p) {
+  return `
+  <div class="dg">
+    <div class="dg-full"><div class="dg-label">Descrição Resumida</div><div class="dg-value">${escHtml(p.descricao_resumida)}</div></div>
+    <div><div class="dg-label">Impacto Interno (Operacional)</div><div class="dg-value">${escHtml(p.impacto_interno)}</div></div>
+    <div><div class="dg-label">Impacto Externo (Cliente / Mercado)</div><div class="dg-value">${escHtml(p.impacto_externo)}</div></div>
+    <div><div class="dg-label">Custo Direto</div><div class="dg-value">${escHtml(p.custo_direto)}</div></div>
+    <div><div class="dg-label">Custo de Oportunidade</div><div class="dg-value">${escHtml(p.custo_oportunidade)}</div></div>
+  </div>`;
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  MODAL
+// ╚══════════════════════════════════════════════════════════╝
+function openModal(p) {
+  $id('modal-content').innerHTML = `
+    <div class="modal-title">${escHtml(p.titulo)}</div>
+    <div style="margin-bottom:16px">
+      <span class="chip chip-a">${escHtml(p.setor_responsavel)}</span>
+      <span class="chip chip-p" style="margin-left:6px">Por: ${escHtml(p.leader_name)} · ${escHtml(p.setor_autor)}</span>
+      <span style="font-size:12px;color:var(--muted);margin-left:8px">${fmtDate(p.created_at)}</span>
+    </div>
+    ${detailGrid(p)}`;
+  show('modal');
+}
+
+$id('modal-close').addEventListener('click', () => hide('modal'));
+$id('modal').addEventListener('click', (e) => { if (e.target === $id('modal')) hide('modal'); });
+
+// ╔══════════════════════════════════════════════════════════╗
+//  PDF
+// ╚══════════════════════════════════════════════════════════╝
+async function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'p', unit:'mm', format:'a4' });
+  const W = 210, margin = 18, lineW = W - margin*2;
+  const primary = [13, 43, 107];
+  const accent  = [196, 154, 46];
+  const muted   = [113, 128, 150];
+
+  const voteCounts = await getVoteCounts();
+  let y = 0;
+
+  function newPage() { doc.addPage(); y = margin; }
+  function checkY(need = 20) { if (y + need > 280) newPage(); }
+  function addText(text, x, yPos, opts = {}) {
+    const { size=11, color=[26,32,44], bold=false } = opts;
+    doc.setFontSize(size); doc.setTextColor(...color);
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    doc.text(String(text||''), x, yPos);
+  }
+
+  // Capa
+  doc.setFillColor(...primary);
+  doc.rect(0, 0, W, 48, 'F');
+  addText('ECGNOW', margin, 22, { size:24, color:[255,255,255], bold:true });
+  doc.setTextColor(...accent); doc.setFont('helvetica','bold'); doc.setFontSize(24);
+  doc.text('NOW', margin + 39, 22);
+  addText('Pauta Estratégica · Reunião de Líderes', margin, 33, { size:12, color:[220,240,241] });
+  addText(S.evento.nome, margin, 42, { size:10, color:[180,210,220] });
+
+  y = 60;
+  addText(`Data de geração: ${new Date().toLocaleDateString('pt-BR')}`, margin, y, { size:10, color:muted }); y += 6;
+  addText(`Total de problemas: ${S.problemas.length}`, margin, y, { size:10, color:muted }); y += 6;
+  addText(`Fase: ${phaseLabel(S.evento.fase)}`, margin, y, { size:10, color:muted }); y += 16;
+
+  const ordered = S.evento.fase === 'encerrado'
+    ? [...S.problemas].sort((a,b) => (voteCounts[b.id]||0) - (voteCounts[a.id]||0))
+    : S.problemas;
+
+  ordered.forEach((p, i) => {
+    checkY(40);
+    doc.setDrawColor(...primary); doc.setLineWidth(0.5); doc.line(margin, y, W-margin, y); y += 8;
+
+    addText(`${i+1}.`, margin, y, { size:14, color:primary, bold:true });
+    const titleLines = doc.splitTextToSize(p.titulo, lineW - 14);
+    titleLines.forEach((l, li) => addText(l, margin+10, y+li*7, { size:13, bold:true }));
+    y += titleLines.length * 7 + 2;
+
+    addText(`Setor: ${p.setor_responsavel}   ·   Por: ${p.leader_name} (${p.setor_autor})`, margin, y, { size:9, color:muted }); y += 5;
+    if (voteCounts[p.id] !== undefined) {
+      addText(`Votos: ${voteCounts[p.id]||0}`, margin, y, { size:9, color:accent, bold:true }); y += 5;
+    }
+    y += 3;
+
+    const col1 = margin, col2 = margin + lineW/2 + 4, cW = lineW/2 - 4;
+
+    checkY(16);
+    addText('DESCRIÇÃO RESUMIDA', col1, y, { size:8, color:muted, bold:true }); y += 5;
+    doc.splitTextToSize(p.descricao_resumida, lineW).forEach(l => { checkY(5); addText(l, col1, y, { size:10 }); y += 5; }); y += 4;
+
+    checkY(24);
+    let y1 = y, y2 = y;
+    addText('IMPACTO INTERNO', col1, y1, { size:8, color:muted, bold:true }); y1 += 5;
+    doc.splitTextToSize(p.impacto_interno, cW).forEach(l => { addText(l, col1, y1, { size:10 }); y1 += 5; });
+    addText('IMPACTO EXTERNO', col2, y2, { size:8, color:muted, bold:true }); y2 += 5;
+    doc.splitTextToSize(p.impacto_externo, cW).forEach(l => { addText(l, col2, y2, { size:10 }); y2 += 5; });
+    y = Math.max(y1, y2) + 4;
+
+    checkY(24);
+    y1 = y; y2 = y;
+    addText('CUSTO DIRETO', col1, y1, { size:8, color:muted, bold:true }); y1 += 5;
+    doc.splitTextToSize(p.custo_direto, cW).forEach(l => { addText(l, col1, y1, { size:10 }); y1 += 5; });
+    addText('CUSTO DE OPORTUNIDADE', col2, y2, { size:8, color:muted, bold:true }); y2 += 5;
+    doc.splitTextToSize(p.custo_oportunidade, cW).forEach(l => { addText(l, col2, y2, { size:10 }); y2 += 5; });
+    y = Math.max(y1, y2) + 10;
+  });
+
+  // Ranking final
+  if (S.evento.fase === 'encerrado' && ordered.length) {
+    newPage();
+    doc.setFillColor(...primary); doc.rect(0,0,W,26,'F');
+    addText('Ranking de Votação', margin, 17, { size:14, color:[255,255,255], bold:true });
+    doc.autoTable({
+      startY: 36,
+      head: [['Pos.','Problema','Setor','Votos']],
+      body: ordered.map((p,i) => [`#${i+1}`, p.titulo, p.setor_responsavel, String(voteCounts[p.id]||0)]),
+      styles: { font:'helvetica', fontSize:10 },
+      headStyles: { fillColor:primary, textColor:255, fontStyle:'bold' },
+      columnStyles: { 0:{cellWidth:14,halign:'center'}, 3:{cellWidth:18,halign:'center'} },
+      margin: { left:margin, right:margin },
+    });
+  }
+
+  doc.save(`pauta-${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.pdf`);
+  toast('PDF gerado!', 'ok');
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  REFRESH
+// ╚══════════════════════════════════════════════════════════╝
+async function refresh() {
+  await loadEvento(); await loadProblemas(); await loadMyVotos();
+  renderHeader(); await renderAdmin();
+  const f = S.evento.fase;
+  if (f === 'submissao')      renderSubmissao();
+  else if (f === 'votacao')   renderVotacao();
+  else if (f === 'encerrado') await renderEncerrado();
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  LOGIN / LOGOUT
+// ╚══════════════════════════════════════════════════════════╝
+const sel = $id('sel-leader');
+LEADERS.forEach(l => {
+  const o = document.createElement('option');
+  o.value = l.id;
+  o.textContent = `${l.name} · ${l.setor}`;
+  sel.appendChild(o);
+});
+
+// Mostrar campo de senha apenas quando admin é selecionado
+sel.addEventListener('change', () => {
+  const leader = LEADERS.find(l => l.id === parseInt(sel.value));
+  const fieldSenha = $id('field-senha');
+  if (leader?.isAdmin) {
+    fieldSenha.hidden = false;
+    $id('inp-senha').focus();
+  } else {
+    fieldSenha.hidden = true;
+    $id('inp-senha').value = '';
+  }
+});
+
+// Permitir Enter no campo de senha
+$id('inp-senha').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') $id('btn-enter').click();
+});
+
+$id('btn-enter').addEventListener('click', async () => {
+  const id = parseInt(sel.value);
+  if (!id) { toast('Selecione seu nome.', 'err'); return; }
+
+  if (FIREBASE_CONFIG.apiKey === 'COLE_AQUI') {
+    toast('Configure as credenciais do Firebase no arquivo antes de usar.', 'err');
+    return;
+  }
+
+  const leader = LEADERS.find(l => l.id === id);
+
+  // Validar senha do admin
+  if (leader?.isAdmin) {
+    const senha = $id('inp-senha').value;
+    if (!senha) { toast('Digite a senha de administrador.', 'err'); $id('inp-senha').focus(); return; }
+    if (senha !== ADMIN_PASSWORD) { toast('Senha incorreta.', 'err'); $id('inp-senha').value = ''; $id('inp-senha').focus(); return; }
+  }
+
+  S.leader = leader;
+  localStorage.setItem('ecg_leader', JSON.stringify(S.leader));
+
+  const btn = $id('btn-enter');
+  btn.disabled = true; btn.textContent = 'Carregando…';
+  try {
+    await refresh(); hide('view-login'); show('view-app');
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Entrar';
+    toast('Erro de conexão. Verifique as credenciais do Firebase.', 'err');
+    console.error(e);
+  }
+});
+
+$id('btn-logout').addEventListener('click', () => {
+  S = { leader:null, evento:null, problemas:[], myVotos:[] };
+  localStorage.removeItem('ecg_leader');
+  hide('view-app'); show('view-login');
+});
+
+// Retomada automática de sessão
+(async () => {
+  const saved = localStorage.getItem('ecg_leader');
+  if (saved && FIREBASE_CONFIG.apiKey !== 'COLE_AQUI') {
+    S.leader = JSON.parse(saved);
+    try { await refresh(); hide('view-login'); show('view-app'); }
+    catch(e) { localStorage.removeItem('ecg_leader'); }
+  }
+})();
+</script>
+</body>
+</html>
