@@ -319,7 +319,7 @@ async function loadProblemas() {
   const snap = await db.ref('problemas').get();
   S.problemas = [];
   if (snap.exists()) {
-    snap.forEach(child => S.problemas.push({ id: child.key, ...child.val() }));
+    snap.forEach(child => { S.problemas.push({ id: child.key, ...child.val() }); });
     S.problemas.sort((a, b) => a.created_at - b.created_at);
   }
 }
