@@ -450,19 +450,26 @@ async function changePhase(fase) {
 // ╚══════════════════════════════════════════════════════════╝
 function renderSubmissao() {
   hide('vote-bar');
-  const mine = S.problemas.filter(p => p.leader_id === S.leader.id);
+  const mine = S.problemas.filter(p => Number(p.leader_id) === Number(S.leader.id));
+
+  const adminTab   = S.leader.isAdmin ? `<button class="tab" data-tab="todos">📂 Todos (${S.problemas.length})</button>` : '';
+  const adminPanel = S.leader.isAdmin ? `<div id="tab-todos" hidden>${renderAllProblems()}</div>` : '';
+  const tabKeys    = S.leader.isAdmin ? ['cadastrar','meus','todos'] : ['cadastrar','meus'];
+
   $id('content-area').innerHTML = `
     <div class="tabs">
       <button class="tab active" data-tab="cadastrar">✏️ Cadastrar Problema</button>
       <button class="tab" data-tab="meus">📋 Meus Problemas (${mine.length})</button>
+      ${adminTab}
     </div>
     <div id="tab-cadastrar">${renderForm()}</div>
-    <div id="tab-meus" hidden>${renderMyProblems(mine)}</div>`;
+    <div id="tab-meus" hidden>${renderMyProblems(mine)}</div>
+    ${adminPanel}`;
 
   document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    ['cadastrar','meus'].forEach(t => $id(`tab-${t}`).hidden = (t !== btn.dataset.tab));
+    tabKeys.forEach(t => { const el = $id(`tab-${t}`); if(el) el.hidden = (t !== btn.dataset.tab); });
   }));
 
   $id('form-problem')?.addEventListener('submit', async (e) => {
@@ -536,6 +543,26 @@ function renderMyProblems(list) {
       <div class="my-card-actions">
         <button class="btn btn-outline btn-sm" data-view="${p.id}">Ver</button>
         <button class="btn btn-danger btn-sm" data-delete="${p.id}">Remover</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderAllProblems() {
+  if (!S.problemas.length) return `<div class="empty"><div class="empty-icon">📭</div><div class="empty-t">Nenhum problema cadastrado ainda.</div></div>`;
+  return S.problemas.map((p,i) => `
+    <div class="my-card">
+      <div class="num-badge">${i+1}</div>
+      <div class="my-card-body">
+        <div class="my-card-title">${escHtml(p.titulo)}</div>
+        <div class="my-card-meta">
+          <span class="chip chip-a">${escHtml(p.setor_responsavel)}</span>
+          &nbsp;·&nbsp;<strong>${escHtml(p.leader_name)}</strong>
+          &nbsp;·&nbsp;${escHtml(p.setor_autor)}
+          &nbsp;·&nbsp;${fmtDate(p.created_at)}
+        </div>
+      </div>
+      <div class="my-card-actions">
+        <button class="btn btn-outline btn-sm" data-view="${p.id}">Ver</button>
       </div>
     </div>`).join('');
 }
