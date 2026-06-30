@@ -604,7 +604,7 @@ async function renderAdmin() {
 
   let btns = '';
   if (nextPhase) btns += `<button class="btn btn-primary" id="btn-next-phase">▶ Avançar para ${phaseLabel(nextPhase)}</button>`;
-  if (prevPhase && f !== 'encerrado') btns += `<button class="btn btn-outline" id="btn-prev-phase">↩ Voltar para ${phaseLabel(prevPhase)}</button>`;
+  if (prevPhase) btns += `<button class="btn btn-outline" id="btn-prev-phase">↩ Voltar para ${phaseLabel(prevPhase)}</button>`;
   if (f === 'encerrado') btns += `<button class="btn btn-green" id="btn-novo-qrs">🔄 Novo QRS Day</button>`;
   btns += `<button class="btn btn-accent" id="btn-pdf">⬇ PDF</button>`;
   btns += `<button class="btn btn-outline" id="btn-excel">📊 Excel</button>`;
