@@ -259,6 +259,10 @@
     .pp-line{width:24px;height:2px;background:var(--border);margin-bottom:20px;flex-shrink:0}
     .pp-line.done{background:var(--g)}
     .pp-line.pending{background:var(--red)}
+    .pp-clickable{cursor:pointer}
+    .pp-clickable:hover .pp-dot{filter:brightness(0.92)}
+    .pp-clickable:hover .pp-label{text-decoration:underline}
+    .phase-nav-bar{display:flex;justify-content:space-between;gap:10px;margin-bottom:22px}
 
     /* ── Phase description ───────────────────────────────── */
     .phase-desc-box{display:flex;align-items:flex-start;gap:14px;background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:16px 20px;margin-bottom:22px;border-left:4px solid var(--p);font-size:14px;line-height:1.6;color:var(--text)}
@@ -390,7 +394,7 @@ const db = firebase.database();
 //  ESTADO
 // ╚══════════════════════════════════════════════════════════╝
 let S = {
-  leader: null, evento: null, problemas: [],
+  leader: null, evento: null, problemas: [], viewFase: null,
   myPreQrs: null, myIndicadores: null, myVerdades: null,
   myAvaliacoes: {}, myCompromisso: null,
 };
@@ -609,17 +613,19 @@ function myPhaseCompletion() {
 
 function phaseProgress() {
   const cur = PHASES.indexOf(S.evento.fase);
+  const viewIdx = PHASES.indexOf(S.viewFase || S.evento.fase);
   const completion = myPhaseCompletion();
   const steps = PHASES.map((p,i) => {
     const past   = i < cur;
-    const active = i === cur;
+    const active = i === viewIdx;
     const done   = completion[p];
     let dotClass = active ? 'active' : '';
     let dotContent = i + 1;
     if (past && done)  { dotClass = 'done';    dotContent = '✓'; }
     if (past && !done) { dotClass = 'pending';  dotContent = '!'; }
+    if (active) dotContent = i + 1;
     return `<div class="pp-step">
-      <div class="pp-inner">
+      <div class="pp-inner pp-clickable" data-fase="${p}">
         <div class="pp-dot ${dotClass}">${dotContent}</div>
         <div class="pp-label ${active?'active':past&&done?'done':past&&!done?'pending':''}">${phaseLabel(p).replace(' Incômodas','')}</div>
       </div>
@@ -627,13 +633,32 @@ function phaseProgress() {
     </div>`;
   }).join('');
 
-  const d = PHASE_DESC[S.evento.fase];
+  const viewFase = S.viewFase || S.evento.fase;
+  const d = PHASE_DESC[viewFase];
   const desc = d ? `<div class="phase-desc-box">
     <span class="phase-desc-emoji">${d.emoji}</span>
     <div><strong>${d.titulo}</strong><br>${d.desc}</div>
   </div>` : '';
 
-  return `<div class="phase-progress">${steps}</div>${desc}`;
+  const prevP = PHASES[viewIdx - 1];
+  const nextP = PHASES[viewIdx + 1];
+  const nav = `<div class="phase-nav-bar">
+    <button class="btn btn-outline" id="btn-view-prev" ${prevP ? '' : 'disabled'}>← Bloco anterior</button>
+    <button class="btn btn-outline" id="btn-view-next" ${nextP ? '' : 'disabled'}>Próximo bloco →</button>
+  </div>`;
+
+  return `<div class="phase-progress">${steps}</div>${desc}${nav}`;
+}
+
+function bindPhaseProgressNav() {
+  document.querySelectorAll('.pp-clickable').forEach(el => {
+    el.addEventListener('click', () => navigateToPhase(el.dataset.fase));
+  });
+  const prevBtn = $id('btn-view-prev');
+  const nextBtn = $id('btn-view-next');
+  const viewIdx = PHASES.indexOf(S.viewFase || S.evento.fase);
+  if (prevBtn) prevBtn.addEventListener('click', () => { const p = PHASES[viewIdx-1]; if (p) navigateToPhase(p); });
+  if (nextBtn) nextBtn.addEventListener('click', () => { const p = PHASES[viewIdx+1]; if (p) navigateToPhase(p); });
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -1984,12 +2009,7 @@ async function downloadPDF() {
 // ╔══════════════════════════════════════════════════════════╗
 //  REFRESH
 // ╚══════════════════════════════════════════════════════════╝
-async function refresh() {
-  await loadEvento(); await loadProblemas();
-  await loadMyPreQrs(); await loadMyIndicadores(); await loadMyVerdades();
-  await loadMyAvaliacoes(); await loadMyCompromisso();
-  renderHeader(); await renderAdmin();
-  const f = S.evento.fase;
+async function renderPhaseContent(f) {
   if      (f === 'manual')        renderManual();
   else if (f === 'pre_qrs')       renderPreQrs();
   else if (f === 'indicadores')   renderIndicadores();
@@ -1998,6 +2018,21 @@ async function refresh() {
   else if (f === 'votacao')       renderVotacao();
   else if (f === 'compromissos')  await renderCompromissos();
   else if (f === 'encerrado')     await renderEncerrado();
+  bindPhaseProgressNav();
+}
+
+async function navigateToPhase(f) {
+  S.viewFase = f;
+  await renderPhaseContent(f);
+}
+
+async function refresh() {
+  await loadEvento(); await loadProblemas();
+  await loadMyPreQrs(); await loadMyIndicadores(); await loadMyVerdades();
+  await loadMyAvaliacoes(); await loadMyCompromisso();
+  renderHeader(); await renderAdmin();
+  S.viewFase = S.evento.fase;
+  await renderPhaseContent(S.viewFase);
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -2037,7 +2072,7 @@ $id('btn-enter').addEventListener('click', async () => {
 });
 
 $id('btn-logout').addEventListener('click', () => {
-  S = { leader:null, evento:null, problemas:[], myPreQrs:null, myVerdades:null, myAvaliacoes:{}, myCompromisso:null };
+  S = { leader:null, evento:null, problemas:[], viewFase:null, myPreQrs:null, myIndicadores:null, myVerdades:null, myAvaliacoes:{}, myCompromisso:null };
   localStorage.removeItem('ecg_leader');
   hide('view-app'); show('view-login');
 });
