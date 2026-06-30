@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QRS Day · ECGNOW</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --p:#0D2B6B;--pd:#091E4D;--pl:#E8EDF8;
+      --a:#C49A2E;--al:#FBF3DC;
+      --g:#276749;--gl:#F0FFF4;
+      --red:#9B2335;--redl:#FFF5F5;
+      --bg:#F0F4F8;--card:#fff;
+      --text:#1A202C;--muted:#718096;--border:#E2E8F0;
+      --r:12px;--sh:0 2px 14px rgba(0,0,0,.08)
+    }
+    body{font-family:'Roboto',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    h1,h2,h3,h4,h5{font-family:'Montserrat',sans-serif}
+    [hidden]{display:none!important}
+
+    /* ── Login ─────────────────────────────────────────── */
+    #view-login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .login-card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:48px 40px;width:100%;max-width:420px;text-align:center}
+    .brand{font-size:30px;font-weight:700;color:var(--p);margin-bottom:2px}
+    .brand span{color:var(--a)}
+    .brand-sub{font-size:14px;color:var(--muted);margin-bottom:36px;font-family:'Roboto',sans-serif;font-weight:400}
+
+    /* ── Forms ──────────────────────────────────────────── */
+    .field{margin-bottom:20px;text-align:left}
+    .field label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:6px}
+    .field input,.field select,.field textarea{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;font-family:'Roboto',sans-serif;font-size:15px;color:var(--text);background:#fff;transition:border-color .2s;outline:none}
+    .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--p)}
+    .field textarea{resize:vertical;min-height:90px;line-height:1.6}
+
+    /* ── Buttons ─────────────────────────────────────────── */
+    .btn{padding:11px 22px;border:none;border-radius:8px;font-family:'Montserrat',sans-serif;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:7px}
+    .btn-primary{background:var(--p);color:#fff}.btn-primary:hover{background:var(--pd)}
+    .btn-accent{background:var(--a);color:#fff}.btn-accent:hover{background:#a8851f}
+    .btn-green{background:var(--g);color:#fff}.btn-green:hover{background:#1e5238}
+    .btn-outline{background:transparent;border:1.5px solid var(--p);color:var(--p)}.btn-outline:hover{background:var(--pl)}
+    .btn-ghost{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25)}.btn-ghost:hover{background:rgba(255,255,255,.22)}
+    .btn-danger{background:var(--redl);color:var(--red);border:1.5px solid #FED7D7}.btn-danger:hover{background:#FED7D7}
+    .btn-sm{padding:7px 14px;font-size:12px}
+    .btn-full{width:100%;justify-content:center}
+    .btn:disabled{opacity:.45;cursor:not-allowed}
+
+    /* ── Header ──────────────────────────────────────────── */
+    #app-header{background:var(--p);color:#fff;padding:0 28px;height:62px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 10px rgba(0,0,0,.18);position:sticky;top:0;z-index:100}
+    .header-brand{font-size:19px;font-weight:700}.header-brand span{color:var(--a)}
+    .header-right{display:flex;align-items:center;gap:12px}
+    .user-chip{background:rgba(255,255,255,.15);padding:5px 14px;border-radius:20px;font-size:13px;font-weight:500;line-height:1.3;text-align:right}
+    .user-chip small{display:block;font-size:11px;opacity:.75;font-weight:400}
+
+    /* ── Phase badge ─────────────────────────────────────── */
+    .fase-badge{padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-family:'Montserrat',sans-serif}
+    .fase-pre_qrs{background:#F0E6FF;color:#6B21A8}
+    .fase-submissao{background:var(--al);color:#8B6914}
+    .fase-verdades{background:#FFF0F0;color:#9B2335}
+    .fase-votacao{background:#EBF8FF;color:#2B6CB0}
+    .fase-compromissos{background:var(--gl);color:var(--g)}
+    .fase-encerrado{background:#F1F5F9;color:#475569}
+
+    /* ── Main ────────────────────────────────────────────── */
+    #app-main{max-width:860px;margin:0 auto;padding:28px 20px}
+
+    /* ── Tabs ────────────────────────────────────────────── */
+    .tabs{display:flex;gap:4px;background:#E2E8F0;padding:4px;border-radius:10px;margin-bottom:24px}
+    .tab{flex:1;padding:9px 12px;border:none;background:transparent;border-radius:7px;font-family:'Montserrat',sans-serif;font-weight:600;font-size:12px;cursor:pointer;color:var(--muted);transition:all .2s;text-align:center}
+    .tab.active{background:#fff;color:var(--p);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+
+    /* ── Section header ──────────────────────────────────── */
+    .sec-title{font-size:21px;font-weight:700;margin-bottom:6px}
+    .sec-sub{font-size:14px;color:var(--muted);margin-bottom:22px}
+
+    /* ── Form card sections ──────────────────────────────── */
+    .form-block{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:26px;margin-bottom:14px}
+    .form-block-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--p);margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid var(--pl)}
+
+    /* ── Generic cards ───────────────────────────────────── */
+    .my-card{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:20px 22px;margin-bottom:12px;display:flex;align-items:flex-start;gap:16px}
+    .my-card-body{flex:1}
+    .my-card-title{font-size:16px;font-weight:600;margin-bottom:4px}
+    .my-card-meta{font-size:13px;color:var(--muted)}
+    .my-card-actions{display:flex;gap:8px;flex-shrink:0}
+    .num-badge{width:34px;height:34px;background:var(--pl);color:var(--p);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;margin-top:2px}
+
+    /* ── Pré-QRS ─────────────────────────────────────────── */
+    .preqrs-q{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:22px 26px;margin-bottom:12px}
+    .preqrs-q-num{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--p);margin-bottom:8px}
+    .preqrs-q-text{font-size:15px;font-weight:600;color:var(--text);margin-bottom:14px;line-height:1.5}
+    .preqrs-answer{background:var(--pl);border-radius:8px;padding:14px 16px;font-size:14px;line-height:1.7;color:var(--text);white-space:pre-wrap}
+    .preqrs-done-card{background:var(--gl);border:1.5px solid #9AE6B4;border-radius:var(--r);padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:12px}
+    .preqrs-done-icon{font-size:28px}
+    .preqrs-done-text{font-size:14px;color:var(--g);font-weight:500}
+
+    /* ── Admin responses list ────────────────────────────── */
+    .resp-card{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px;margin-bottom:12px}
+    .resp-card-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+    .resp-card-name{font-size:15px;font-weight:700}
+    .resp-card-setor{font-size:12px;color:var(--muted)}
+    .resp-item{margin-bottom:14px}
+    .resp-item-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:5px}
+    .resp-item-value{font-size:14px;line-height:1.65;color:var(--text)}
+
+    /* ── Verdades Incômodas ──────────────────────────────── */
+    .verdade-card{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px;margin-bottom:12px;border-left:4px solid var(--red)}
+    .verdade-text{font-size:15px;line-height:1.7;color:var(--text);margin-bottom:10px}
+    .verdade-meta{font-size:12px;color:var(--muted)}
+    .verdade-anon{font-size:12px;color:var(--red);font-weight:600}
+    .toggle-group{display:flex;gap:0;margin-bottom:20px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden}
+    .toggle-btn{flex:1;padding:10px;border:none;background:#fff;font-family:'Montserrat',sans-serif;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s;color:var(--muted)}
+    .toggle-btn.active{background:var(--p);color:#fff}
+    .verdades-counter{background:var(--redl);border:1.5px solid #FED7D7;border-radius:var(--r);padding:16px 20px;margin-bottom:20px;text-align:center;font-size:14px;color:var(--red);font-weight:500}
+    .verdades-counter strong{font-size:28px;display:block;font-family:'Montserrat',sans-serif;margin-bottom:4px}
+
+    /* ── Criteria rating ─────────────────────────────────── */
+    .criteria-bar{background:var(--pd);color:#fff;padding:9px 24px;text-align:center;font-size:14px;position:sticky;top:62px;z-index:90}
+    .criteria-bar strong{font-family:'Montserrat',sans-serif;font-size:18px}
+    .v-card{background:#fff;border-radius:var(--r);box-shadow:var(--sh);border:2px solid transparent;margin-bottom:14px;overflow:hidden;transition:border-color .2s}
+    .v-card.rated{border-color:var(--g)}
+    .v-card-head{padding:18px 22px 14px;cursor:pointer;display:flex;align-items:flex-start;gap:14px}
+    .v-card-head:hover{background:#FAFAFA}
+    .v-card-info{flex:1}
+    .v-card-title{font-size:16px;font-weight:600;margin-bottom:4px}
+    .v-card-meta{font-size:13px;color:var(--muted)}
+    .v-card-arrow{font-size:18px;color:var(--muted);margin-top:2px;flex-shrink:0;transition:transform .2s}
+    .v-card.open .v-card-arrow{transform:rotate(180deg)}
+    .v-card-body{padding:0 22px 18px;border-top:1px solid var(--border);display:none}
+    .v-card.open .v-card-body{display:block}
+    .v-card-footer{padding:12px 22px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .rated-label{background:var(--gl);color:var(--g);font-size:12px;font-weight:600;padding:4px 12px;border-radius:20px;font-family:'Montserrat',sans-serif}
+    .score-preview{font-size:12px;color:var(--muted)}
+    .score-preview strong{color:var(--p);font-size:14px}
+
+    /* ── Criteria modal ──────────────────────────────────── */
+    .crit-section{margin-bottom:22px}
+    .crit-label{font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px}
+    .crit-hint{font-size:12px;color:var(--muted);margin-bottom:12px}
+    .crit-btns{display:flex;gap:6px}
+    .crit-btn{flex:1;padding:12px 4px;border:1.5px solid var(--border);border-radius:8px;background:#fff;font-family:'Montserrat',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:all .2s;color:var(--muted);text-align:center}
+    .crit-btn.sel{border-color:var(--p);background:var(--pl);color:var(--p)}
+    .crit-btn:hover:not(.sel){background:var(--bg)}
+    .crit-score-total{text-align:center;padding:16px;background:var(--pl);border-radius:8px;margin-top:4px}
+    .crit-score-total strong{font-size:28px;color:var(--p);font-family:'Montserrat',sans-serif}
+    .crit-score-total span{font-size:13px;color:var(--muted)}
+
+    /* ── Results ─────────────────────────────────────────── */
+    .res-card{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:18px 22px;margin-bottom:12px;display:flex;align-items:center;gap:18px}
+    .rank{font-size:26px;font-weight:700;color:var(--p);font-family:'Montserrat',sans-serif;min-width:38px}
+    .res-info{flex:1}
+    .res-title{font-size:16px;font-weight:600;margin-bottom:3px}
+    .res-meta{font-size:13px;color:var(--muted);margin-bottom:6px}
+    .res-criteria{display:flex;gap:8px;font-size:11px}
+    .res-crit-item{background:var(--bg);border-radius:4px;padding:3px 8px;color:var(--muted)}
+    .res-crit-item strong{color:var(--p)}
+    .res-score{text-align:right;min-width:70px}
+    .res-score strong{display:block;font-size:26px;font-weight:700;color:var(--p);font-family:'Montserrat',sans-serif;line-height:1}
+    .res-score small{font-size:11px;color:var(--muted)}
+    .progress{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:6px}
+    .progress-fill{height:100%;background:var(--p);border-radius:3px}
+    .res-rank-1 .rank,.res-rank-1 .res-score strong{color:var(--a)}
+
+    /* ── Compromissos ────────────────────────────────────── */
+    .comp-card{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:22px 24px;margin-bottom:12px;border-left:4px solid var(--g)}
+    .comp-card-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+    .comp-card-name{font-size:15px;font-weight:700}
+    .comp-card-setor{font-size:12px;color:var(--muted)}
+    .comp-item{margin-bottom:14px}
+    .comp-item-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--g);margin-bottom:6px}
+    .comp-item-value{font-size:14px;line-height:1.7;color:var(--text)}
+    .comp-done-card{background:var(--gl);border:1.5px solid #9AE6B4;border-radius:var(--r);padding:18px 22px;margin-bottom:20px;display:flex;align-items:center;gap:12px}
+
+    /* ── Admin panel ─────────────────────────────────────── */
+    #admin-panel{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:26px;margin-bottom:22px;border-left:4px solid var(--a)}
+    .admin-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .admin-title{font-size:15px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px}
+    .admin-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+    .stat{text-align:center;padding:14px;background:var(--bg);border-radius:8px}
+    .stat-n{font-size:28px;font-weight:700;color:var(--p);font-family:'Montserrat',sans-serif}
+    .stat-l{font-size:12px;color:var(--muted);margin-top:3px}
+    .admin-actions{display:flex;gap:10px;flex-wrap:wrap}
+
+    /* ── Detail grid inside cards ────────────────────────── */
+    .dg{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+    .dg-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:5px}
+    .dg-value{font-size:14px;line-height:1.65;color:var(--text)}
+    .dg-full{grid-column:span 2}
+
+    /* ── Toast ───────────────────────────────────────────── */
+    #toast{position:fixed;bottom:22px;right:22px;padding:13px 20px;border-radius:10px;font-size:14px;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,.15);z-index:999;transform:translateY(16px);opacity:0;transition:all .28s;pointer-events:none;max-width:320px}
+    #toast.show{transform:translateY(0);opacity:1}
+    #toast.ok{background:#276749;color:#fff}
+    #toast.err{background:#9B2335;color:#fff}
+    #toast.info{background:#2B6CB0;color:#fff}
+
+    /* ── Modal ───────────────────────────────────────────── */
+    #modal{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px}
+    #modal-box{background:#fff;border-radius:var(--r);width:100%;max-width:680px;max-height:88vh;overflow-y:auto;padding:30px}
+    .modal-title{font-size:20px;font-weight:700;color:var(--p);margin-bottom:22px}
+    .modal-close{float:right;background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1}
+
+    /* ── Chips ───────────────────────────────────────────── */
+    .chip{display:inline-block;padding:3px 11px;border-radius:20px;font-size:12px;font-weight:600}
+    .chip-p{background:var(--pl);color:var(--p)}
+    .chip-a{background:var(--al);color:#8B6914}
+    .chip-g{background:var(--gl);color:var(--g)}
+
+    /* ── Loader ──────────────────────────────────────────── */
+    .loader{text-align:center;padding:56px 20px;color:var(--muted)}
+    .spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 14px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .empty{text-align:center;padding:48px 20px;color:var(--muted)}
+    .empty-icon{font-size:44px;margin-bottom:14px}
+    .empty-t{font-size:17px;font-weight:600;color:var(--text);margin-bottom:6px}
+
+    /* ── Phase progress ──────────────────────────────────── */
+    .phase-progress{display:flex;align-items:center;gap:0;margin-bottom:24px;overflow-x:auto;padding-bottom:4px}
+    .pp-step{display:flex;align-items:center;gap:0;flex-shrink:0}
+    .pp-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Montserrat',sans-serif;border:2px solid var(--border);background:#fff;color:var(--muted)}
+    .pp-dot.done{background:var(--g);border-color:var(--g);color:#fff}
+    .pp-dot.active{background:var(--p);border-color:var(--p);color:#fff}
+    .pp-label{font-size:10px;color:var(--muted);text-align:center;margin-top:4px;font-family:'Montserrat',sans-serif;font-weight:600;white-space:nowrap}
+    .pp-label.active{color:var(--p)}
+    .pp-label.done{color:var(--g)}
+    .pp-inner{display:flex;flex-direction:column;align-items:center}
+    .pp-line{width:24px;height:2px;background:var(--border);margin-bottom:20px;flex-shrink:0}
+    .pp-line.done{background:var(--g)}
+
+    /* ── Info box ────────────────────────────────────────── */
+    .info-box{border-radius:var(--r);padding:16px 20px;margin-bottom:20px;font-size:14px;line-height:1.6}
+    .info-box.blue{background:var(--pl);border:1px solid #BFD2F7;color:var(--pd)}
+    .info-box.red{background:var(--redl);border:1px solid #FED7D7;color:var(--red)}
+    .info-box.green{background:var(--gl);border:1px solid #9AE6B4;color:var(--g)}
+    .info-box strong{font-family:'Montserrat',sans-serif}
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════ LOGIN ═══════════════════════ -->
+<div id="view-login">
+  <div class="login-card">
+    <div class="brand">ECG<span>NOW</span></div>
+    <div class="brand-sub">QRS Day · Reunião de Líderes</div>
+    <div class="field">
+      <label>Selecione seu nome</label>
+      <select id="sel-leader"><option value="">— escolha —</option></select>
+    </div>
+    <div class="field" id="field-pin" hidden>
+      <label>PIN de acesso</label>
+      <input type="password" id="inp-pin" placeholder="••••" maxlength="4" inputmode="numeric" autocomplete="off" style="letter-spacing:6px;font-size:22px;text-align:center">
+    </div>
+    <button class="btn btn-primary btn-full" id="btn-enter" style="margin-top:8px">Entrar</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════ APP ═══════════════════════ -->
+<div id="view-app" hidden>
+  <header id="app-header">
+    <div class="header-brand">ECG<span>NOW</span></div>
+    <div class="header-right">
+      <div id="hdr-fase"></div>
+      <div class="user-chip" id="hdr-user"></div>
+      <button class="btn btn-ghost btn-sm" id="btn-logout">Sair</button>
+    </div>
+  </header>
+  <div id="sticky-bar" hidden></div>
+  <main id="app-main">
+    <div id="admin-panel" hidden>
+      <div class="admin-head">
+        <div class="admin-title">⚙️ Painel Admin</div>
+        <span id="admin-fase-badge"></span>
+      </div>
+      <div class="admin-stats" id="admin-stats-grid"></div>
+      <div class="admin-actions" id="admin-actions"></div>
+    </div>
+    <div id="content-area"></div>
+  </main>
+</div>
+
+<!-- ═══════════════════════ MODAL ═══════════════════════ -->
+<div id="modal" hidden>
+  <div id="modal-box">
+    <button class="modal-close" id="modal-close">×</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<!-- ═══════════════════════ JAVASCRIPT ═══════════════════════ -->
+<script>
+// ╔══════════════════════════════════════════════════════════╗
+//  CONFIGURAÇÃO
+// ╚══════════════════════════════════════════════════════════╝
+const FIREBASE_CONFIG = {
+  apiKey:            'AIzaSyDwSba6GNoWqUM2QlNHyGFR8OlI_lp1BxA',
+  authDomain:        'ecgnow-pauta.firebaseapp.com',
+  databaseURL:       'https://ecgnow-pauta-default-rtdb.firebaseio.com',
+  projectId:         'ecgnow-pauta',
+  storageBucket:     'ecgnow-pauta.firebasestorage.app',
+  messagingSenderId: '969386948850',
+  appId:             '1:969386948850:web:620ac7c1b93accd08d786b',
+};
+
+const LEADERS = [
+  { id: 1,  name: 'Mayara Silva',      setor: 'Financeiro',               pin: '1703' },
+  { id: 2,  name: 'Bruno Maia',        setor: 'Operação Holter',          pin: '2080' },
+  { id: 3,  name: 'Danielle Felipe',   setor: 'Gente & Cultura',          pin: '1511', isAdmin: true },
+  { id: 4,  name: 'Renner Lariucci',   setor: 'Operação Holter',          pin: '1606' },
+  { id: 5,  name: 'Marco Bustamante',  setor: 'Gestão',                   pin: '1742' },
+  { id: 6,  name: 'Gabriel de Paula',  setor: 'Gestão',                   pin: '1603' },
+  { id: 7,  name: 'Vinicius Santos',   setor: 'Tecnologia da Informação', pin: '2317' },
+  { id: 8,  name: 'Rodrigo Aramis',    setor: 'Comercial',                pin: '1744' },
+  { id: 9,  name: 'Aline Silveira',    setor: 'Educação',                 pin: '1305' },
+  { id: 10, name: 'Barbara Braga',     setor: 'Sucesso do Cliente',       pin: '8954' },
+];
+
+const SETORES = [...new Set(LEADERS.map(l => l.setor))];
+
+const PHASES = ['pre_qrs','submissao','verdades','votacao','compromissos','encerrado'];
+const PHASE_LABELS = {
+  pre_qrs:'Pré-QRS', submissao:'Submissão', verdades:'Verdades Incômodas',
+  votacao:'Votação', compromissos:'Compromissos', encerrado:'Encerrado'
+};
+const PHASE_CSS = {
+  pre_qrs:'fase-pre_qrs', submissao:'fase-submissao', verdades:'fase-verdades',
+  votacao:'fase-votacao', compromissos:'fase-compromissos', encerrado:'fase-encerrado'
+};
+
+const PRE_QRS_QUESTIONS = [
+  { key:'q1', label:'O que eu prometi no trimestre?' },
+  { key:'q2', label:'O que eu entreguei?' },
+  { key:'q3', label:'O que não entreguei e por quê?' },
+  { key:'q4', label:'Qual problema eu estou evitando falar?' },
+  { key:'q5', label:'Qual decisão eu preciso que a liderança tome?' },
+  { key:'q6', label:'O que eu acho que a empresa precisa parar de fazer?' },
+  { key:'q7', label:'Qual métrica mais me preocupa hoje?' },
+];
+
+// ╔══════════════════════════════════════════════════════════╗
+//  FIREBASE INIT
+// ╚══════════════════════════════════════════════════════════╝
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.database();
+
+// ╔══════════════════════════════════════════════════════════╗
+//  ESTADO
+// ╚══════════════════════════════════════════════════════════╝
+let S = {
+  leader: null, evento: null, problemas: [],
+  myPreQrs: null, myVerdades: null,
+  myAvaliacoes: {}, myCompromisso: null,
+};
+
+// ╔══════════════════════════════════════════════════════════╗
+//  UTILIDADES
+// ╚══════════════════════════════════════════════════════════╝
+const $id = id => document.getElementById(id);
+const show = id => $id(id).hidden = false;
+const hide = id => $id(id).hidden = true;
+let _tt;
+function toast(msg, type='ok') {
+  const el = $id('toast');
+  el.className = `${type} show`; el.textContent = msg;
+  clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('show'), 3200);
+}
+const fmtDate = ts => new Date(ts).toLocaleDateString('pt-BR');
+const escHtml = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const phaseLabel = f => PHASE_LABELS[f] || f;
+const phaseCss   = f => PHASE_CSS[f] || '';
+
+// ╔══════════════════════════════════════════════════════════╗
+//  FIREBASE — LEITURA
+// ╚══════════════════════════════════════════════════════════╝
+async function loadEvento() {
+  const snap = await db.ref('evento').get();
+  if (!snap.exists()) {
+    const novo = { nome:'QRS Day · ' + new Date().toLocaleDateString('pt-BR',{month:'2-digit',year:'numeric'}), fase:'pre_qrs' };
+    await db.ref('evento').set(novo); S.evento = novo;
+  } else S.evento = snap.val();
+}
+
+async function loadProblemas() {
+  const snap = await db.ref('problemas').get();
+  S.problemas = [];
+  if (snap.exists()) {
+    snap.forEach(c => S.problemas.push({ id: c.key, ...c.val() }));
+    S.problemas.sort((a,b) => a.created_at - b.created_at);
+  }
+}
+
+async function loadMyPreQrs() {
+  const snap = await db.ref(`pre_qrs/${S.leader.id}`).get();
+  S.myPreQrs = snap.exists() ? snap.val() : null;
+}
+
+async function loadMyVerdades() {
+  const snap = await db.ref(`verdades/${S.leader.id}`).get();
+  S.myVerdades = snap.exists() ? snap.val() : null;
+}
+
+async function loadMyAvaliacoes() {
+  const snap = await db.ref('avaliacoes').get();
+  S.myAvaliacoes = {};
+  if (snap.exists()) snap.forEach(c => {
+    const v = c.val();
+    if (Number(v.leader_id) === Number(S.leader.id)) S.myAvaliacoes[v.problema_id] = v;
+  });
+}
+
+async function loadMyCompromisso() {
+  const snap = await db.ref(`compromissos/${S.leader.id}`).get();
+  S.myCompromisso = snap.exists() ? snap.val() : null;
+}
+
+async function loadAdminStats() {
+  const f = S.evento.fase;
+  const grid = $id('admin-stats-grid');
+
+  if (f === 'pre_qrs' || f === 'submissao' || f === 'verdades' || f === 'compromissos' || f === 'encerrado') {
+    const [pqSnap, prSnap, vdSnap, avSnap, cmSnap] = await Promise.all([
+      db.ref('pre_qrs').get(),
+      db.ref('problemas').get(),
+      db.ref('verdades').get(),
+      db.ref('avaliacoes').get(),
+      db.ref('compromissos').get(),
+    ]);
+    const avLeaders = new Set();
+    if (avSnap.exists()) avSnap.forEach(c => avLeaders.add(c.val().leader_id));
+
+    grid.innerHTML = `
+      <div class="stat"><div class="stat-n">${pqSnap.exists()?pqSnap.numChildren():0}/10</div><div class="stat-l">Pré-QRS enviados</div></div>
+      <div class="stat"><div class="stat-n">${prSnap.exists()?prSnap.numChildren():0}</div><div class="stat-l">Problemas</div></div>
+      <div class="stat"><div class="stat-n">${vdSnap.exists()?vdSnap.numChildren():0}/10</div><div class="stat-l">Verdades enviadas</div></div>
+      <div class="stat"><div class="stat-n">${avLeaders.size}/10</div><div class="stat-l">Avaliaram</div></div>
+      <div class="stat"><div class="stat-n">${cmSnap.exists()?cmSnap.numChildren():0}/10</div><div class="stat-l">Compromissos</div></div>
+    `;
+    // expand grid to 5 cols for encerrado/full view
+    grid.style.gridTemplateColumns = 'repeat(5,1fr)';
+  } else {
+    const [avSnap, prSnap] = await Promise.all([db.ref('avaliacoes').get(), db.ref('problemas').get()]);
+    const avLeaders = new Set();
+    if (avSnap.exists()) avSnap.forEach(c => avLeaders.add(c.val().leader_id));
+    grid.innerHTML = `
+      <div class="stat"><div class="stat-n">${prSnap.exists()?prSnap.numChildren():0}</div><div class="stat-l">Problemas</div></div>
+      <div class="stat"><div class="stat-n">${avLeaders.size}/10</div><div class="stat-l">Líderes avaliaram</div></div>
+      <div class="stat"><div class="stat-n">${avSnap.exists()?avSnap.numChildren():0}</div><div class="stat-l">Avaliações</div></div>
+    `;
+    grid.style.gridTemplateColumns = 'repeat(3,1fr)';
+  }
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  FIREBASE — ESCRITA
+// ╚══════════════════════════════════════════════════════════╝
+async function savePreQrs(data) {
+  const payload = { ...data, leader_name: S.leader.name, setor: S.leader.setor, submitted_at: Date.now() };
+  await db.ref(`pre_qrs/${S.leader.id}`).set(payload);
+  S.myPreQrs = payload;
+}
+
+async function saveVerdade(texto, anonimo) {
+  const payload = { texto, anonimo, submitted_at: Date.now() };
+  if (!anonimo) { payload.leader_name = S.leader.name; payload.setor = S.leader.setor; }
+  await db.ref(`verdades/${S.leader.id}`).set(payload);
+  S.myVerdades = payload;
+}
+
+async function saveAvaliacao(problemaId, impacto, urgencia, controle) {
+  const key = `${S.leader.id}_${problemaId}`;
+  const data = { leader_id: S.leader.id, problema_id: problemaId, impacto, urgencia, controle, score: impacto+urgencia+controle, created_at: Date.now() };
+  await db.ref(`avaliacoes/${key}`).set(data);
+  S.myAvaliacoes[problemaId] = data;
+}
+
+async function submitProblem(data) {
+  await db.ref('problemas').push({ ...data, leader_id: S.leader.id, leader_name: S.leader.name, setor_autor: S.leader.setor, created_at: Date.now() });
+}
+
+async function deleteProblem(id) {
+  const snap = await db.ref(`problemas/${id}`).get();
+  if (snap.exists() && snap.val().leader_id === S.leader.id) {
+    await db.ref(`problemas/${id}`).remove();
+    const avSnap = await db.ref('avaliacoes').get();
+    if (avSnap.exists()) {
+      const upd = {};
+      avSnap.forEach(c => { if (c.val().problema_id === id) upd[c.key] = null; });
+      if (Object.keys(upd).length) await db.ref('avaliacoes').update(upd);
+    }
+  }
+}
+
+async function saveCompromisso(c90, cobranca) {
+  const data = { c90, cobranca, leader_name: S.leader.name, setor: S.leader.setor, submitted_at: Date.now() };
+  await db.ref(`compromissos/${S.leader.id}`).set(data);
+  S.myCompromisso = data;
+}
+
+async function updateFase(fase) {
+  await db.ref('evento/fase').set(fase);
+  S.evento.fase = fase;
+}
+
+async function getScores() {
+  const snap = await db.ref('avaliacoes').get();
+  const scores = {};
+  if (snap.exists()) snap.forEach(c => {
+    const v = c.val();
+    if (!scores[v.problema_id]) scores[v.problema_id] = { impacto:0, urgencia:0, controle:0, total:0, count:0 };
+    scores[v.problema_id].impacto  += v.impacto;
+    scores[v.problema_id].urgencia += v.urgencia;
+    scores[v.problema_id].controle += v.controle;
+    scores[v.problema_id].total    += v.score;
+    scores[v.problema_id].count++;
+  });
+  return scores;
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  RENDER — HEADER
+// ╚══════════════════════════════════════════════════════════╝
+function renderHeader() {
+  $id('hdr-user').innerHTML = `${escHtml(S.leader.name)}<small>${escHtml(S.leader.setor)}</small>`;
+  $id('hdr-fase').innerHTML = `<span class="fase-badge ${phaseCss(S.evento.fase)}">${phaseLabel(S.evento.fase)}</span>`;
+}
+
+function phaseProgress() {
+  const cur = PHASES.indexOf(S.evento.fase);
+  const steps = PHASES.map((p,i) => {
+    const done = i < cur, active = i === cur;
+    return `<div class="pp-step">
+      <div class="pp-inner">
+        <div class="pp-dot ${done?'done':active?'active':''}">${done?'✓':i+1}</div>
+        <div class="pp-label ${done?'done':active?'active':''}">${phaseLabel(p).replace(' Incômodas','').replace('ão','ão')}</div>
+      </div>
+      ${i < PHASES.length-1 ? `<div class="pp-line ${i<cur?'done':''}"></div>` : ''}
+    </div>`;
+  }).join('');
+  return `<div class="phase-progress">${steps}</div>`;
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  RENDER — ADMIN
+// ╚══════════════════════════════════════════════════════════╝
+async function renderAdmin() {
+  if (!S.leader.isAdmin) { hide('admin-panel'); return; }
+  show('admin-panel');
+  $id('admin-fase-badge').innerHTML = `<span class="fase-badge ${phaseCss(S.evento.fase)}">${phaseLabel(S.evento.fase)}</span>`;
+  await loadAdminStats();
+
+  const f = S.evento.fase;
+  const nextPhase = PHASES[PHASES.indexOf(f)+1];
+  const prevPhase = PHASES[PHASES.indexOf(f)-1];
+
+  let btns = '';
+  if (nextPhase) btns += `<button class="btn btn-primary" id="btn-next-phase">▶ Avançar para ${phaseLabel(nextPhase)}</button>`;
+  if (prevPhase && f !== 'encerrado') btns += `<button class="btn btn-outline" id="btn-prev-phase">↩ Voltar para ${phaseLabel(prevPhase)}</button>`;
+  btns += `<button class="btn btn-accent" id="btn-pdf">⬇ PDF</button>`;
+  btns += `<button class="btn btn-outline" id="btn-excel">📊 Excel</button>`;
+  if (f === 'pre_qrs' || f === 'submissao' || f === 'encerrado')
+    btns += `<button class="btn btn-outline" id="btn-view-preqrs">👁 Ver Pré-QRS</button>`;
+  if (f === 'verdades' || f === 'encerrado')
+    btns += `<button class="btn btn-outline" id="btn-view-verdades">👁 Ver Verdades</button>`;
+  if (f === 'compromissos' || f === 'encerrado')
+    btns += `<button class="btn btn-outline" id="btn-view-comp">👁 Ver Compromissos</button>`;
+
+  $id('admin-actions').innerHTML = btns;
+
+  $id('btn-next-phase')?.addEventListener('click', () => changePhase(nextPhase));
+  $id('btn-prev-phase')?.addEventListener('click', () => changePhase(prevPhase));
+  $id('btn-pdf')?.addEventListener('click', downloadPDF);
+  $id('btn-excel')?.addEventListener('click', downloadExcel);
+  $id('btn-view-preqrs')?.addEventListener('click', adminViewPreQrs);
+  $id('btn-view-verdades')?.addEventListener('click', adminViewVerdades);
+  $id('btn-view-comp')?.addEventListener('click', adminViewCompromissos);
+}
+
+async function changePhase(fase) {
+  try { await updateFase(fase); toast(`Fase: ${phaseLabel(fase)}`, 'ok'); await refresh(); }
+  catch(e) { toast('Erro ao alterar fase.', 'err'); }
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  RENDER — PRÉ-QRS
+// ╚══════════════════════════════════════════════════════════╝
+function renderPreQrs() {
+  hide('sticky-bar');
+  if (S.myPreQrs) {
+    const answers = PRE_QRS_QUESTIONS.map((q,i) => `
+      <div class="preqrs-q">
+        <div class="preqrs-q-num">Pergunta ${i+1}</div>
+        <div class="preqrs-q-text">${escHtml(q.label)}</div>
+        <div class="preqrs-answer">${escHtml(S.myPreQrs[q.key]||'—')}</div>
+      </div>`).join('');
+
+    $id('content-area').innerHTML = `
+      ${phaseProgress()}
+      <div class="sec-title">Pré-QRS</div>
+      <div class="sec-sub">Suas respostas foram enviadas. Obrigada pela transparência!</div>
+      <div class="preqrs-done-card">
+        <div class="preqrs-done-icon">✅</div>
+        <div class="preqrs-done-text">Respostas registradas em ${fmtDate(S.myPreQrs.submitted_at)}.<br>Você pode editar até o início da reunião.</div>
+      </div>
+      ${answers}
+      <button class="btn btn-outline" id="btn-edit-preqrs" style="margin-top:8px">✏️ Editar respostas</button>`;
+
+    $id('btn-edit-preqrs').addEventListener('click', () => { S.myPreQrs = null; renderPreQrs(); });
+  } else {
+    const fields = PRE_QRS_QUESTIONS.map((q,i) => `
+      <div class="preqrs-q">
+        <div class="preqrs-q-num">Pergunta ${i+1} de ${PRE_QRS_QUESTIONS.length}</div>
+        <div class="preqrs-q-text">${escHtml(q.label)}</div>
+        <div class="field" style="margin:0"><textarea name="${q.key}" required placeholder="Escreva aqui com honestidade…" rows="3"></textarea></div>
+      </div>`).join('');
+
+    $id('content-area').innerHTML = `
+      ${phaseProgress()}
+      <div class="sec-title">Pré-QRS</div>
+      <div class="sec-sub">Responda antes da reunião. Suas respostas guiarão as discussões do dia.</div>
+      <div class="info-box blue"><strong>Dica:</strong> Seja direto e honesto. O objetivo é chegar ao QRS Day preparado para decidir, não apenas para relatar.</div>
+      <form id="form-preqrs">${fields}
+        <button type="submit" class="btn btn-primary" style="margin-top:8px">💾 Enviar respostas</button>
+      </form>`;
+
+    $id('form-preqrs').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target, btn = f.querySelector('[type=submit]');
+      btn.disabled = true; btn.textContent = 'Salvando…';
+      const data = {};
+      PRE_QRS_QUESTIONS.forEach(q => { data[q.key] = f[q.key]?.value.trim() || ''; });
+      try { await savePreQrs(data); toast('Respostas salvas!', 'ok'); renderPreQrs(); }
+      catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Enviar respostas'; }
+    });
+  }
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  RENDER — SUBMISSÃO
+// ╚══════════════════════════════════════════════════════════╝
+function renderSubmissao() {
+  hide('sticky-bar');
+  const mine = S.problemas.filter(p => Number(p.leader_id) === Number(S.leader.id));
+  const adminTab   = S.leader.isAdmin ? `<button class="tab" data-tab="todos">📂 Todos (${S.problemas.length})</button>` : '';
+  const adminPanel = S.leader.isAdmin ? `<div id="tab-todos" hidden>${renderAllProblems()}</div>` : '';
+  const tabKeys    = S.leader.isAdmin ? ['cadastrar','meus','todos'] : ['cadastrar','meus'];
+
+  $id('content-area').innerHTML = `
+    ${phaseProgress()}
+    <div class="tabs">
+      <button class="tab active" data-tab="cadastrar">✏️ Cadastrar Problema</button>
+      <button class="tab" data-tab="meus">📋 Meus Problemas (${mine.length})</button>
+      ${adminTab}
+    </div>
+    <div id="tab-cadastrar">${renderForm()}</div>
+    <div id="tab-meus" hidden>${renderMyProblems(mine)}</div>
+    ${adminPanel}`;
+
+  document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    tabKeys.forEach(t => { const el=$id(`tab-${t}`); if(el) el.hidden=(t!==btn.dataset.tab); });
+  }));
+
+  $id('form-problem')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target, btn = f.querySelector('[type=submit]');
+    btn.disabled=true; btn.textContent='Salvando…';
+    try {
+      await submitProblem({
+        titulo: f.titulo.value.trim(), setor_responsavel: f.setor_responsavel.value,
+        descricao_resumida: f.descricao_resumida.value.trim(),
+        impacto_interno: f.impacto_interno.value.trim(),
+        impacto_externo: f.impacto_externo.value.trim(),
+        custo_direto: f.custo_direto.value.trim(),
+        custo_oportunidade: f.custo_oportunidade.value.trim(),
+      });
+      toast('Problema cadastrado!', 'ok');
+      await loadProblemas(); renderSubmissao();
+    } catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Salvar Problema'; }
+  });
+
+  document.querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', async () => {
+    if (!confirm('Remover este problema?')) return;
+    try { await deleteProblem(btn.dataset.delete); toast('Removido.', 'info'); await loadProblemas(); renderSubmissao(); }
+    catch(e) { toast('Erro ao remover.', 'err'); }
+  }));
+
+  document.querySelectorAll('[data-view]').forEach(btn =>
+    btn.addEventListener('click', () => openModal(S.problemas.find(p => p.id === btn.dataset.view))));
+}
+
+function renderForm() {
+  const opts = SETORES.map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('');
+  return `<form id="form-problem">
+    <div class="form-block">
+      <div class="form-block-title">Identificação e Contexto</div>
+      <div class="field"><label>Título do Problema *</label><input name="titulo" required placeholder="Um nome claro e objetivo"></div>
+      <div class="field"><label>Setor Responsável *</label>
+        <select name="setor_responsavel" required><option value="">— selecione —</option>${opts}</select></div>
+      <div class="field"><label>Descrição Resumida *</label>
+        <textarea name="descricao_resumida" required placeholder="O que está acontecendo, com que frequência e onde o processo trava?"></textarea></div>
+    </div>
+    <div class="form-block">
+      <div class="form-block-title">Análise de Impacto</div>
+      <div class="field"><label>Impacto Interno (Operacional) *</label>
+        <textarea name="impacto_interno" required placeholder="Como afeta o clima, a produtividade ou gera retrabalho?"></textarea></div>
+      <div class="field"><label>Impacto Externo (Cliente / Mercado) *</label>
+        <textarea name="impacto_externo" required placeholder="Como chega no cliente final?"></textarea></div>
+    </div>
+    <div class="form-block">
+      <div class="form-block-title">Impacto Econômico</div>
+      <div class="field"><label>Custo Direto *</label>
+        <textarea name="custo_direto" required placeholder="Desperdício, multas, horas extras…"></textarea></div>
+      <div class="field"><label>Custo de Oportunidade *</label>
+        <textarea name="custo_oportunidade" required placeholder="O que a empresa deixa de ganhar porque esse problema existe?"></textarea></div>
+    </div>
+    <button type="submit" class="btn btn-primary">💾 Salvar Problema</button>
+  </form>`;
+}
+
+function renderMyProblems(list) {
+  if (!list.length) return `<div class="empty"><div class="empty-icon">📭</div><div class="empty-t">Nenhum problema cadastrado.</div></div>`;
+  return list.map((p,i) => `
+    <div class="my-card">
+      <div class="num-badge">${i+1}</div>
+      <div class="my-card-body">
+        <div class="my-card-title">${escHtml(p.titulo)}</div>
+        <div class="my-card-meta"><span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · ${fmtDate(p.created_at)}</div>
+      </div>
+      <div class="my-card-actions">
+        <button class="btn btn-outline btn-sm" data-view="${p.id}">Ver</button>
+        <button class="btn btn-danger btn-sm" data-delete="${p.id}">Remover</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderAllProblems() {
+  if (!S.problemas.length) return `<div class="empty"><div class="empty-icon">📭</div><div class="empty-t">Nenhum problema ainda.</div></div>`;
+  return S.problemas.map((p,i) => `
+    <div class="my-card">
+      <div class="num-badge">${i+1}</div>
+      <div class="my-card-body">
+        <div class="my-card-title">${escHtml(p.titulo)}</div>
+        <div class="my-card-meta"><span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · <strong>${escHtml(p.leader_name)}</strong> · ${escHtml(p.setor_autor)} · ${fmtDate(p.created_at)}</div>
+      </div>
+      <div class="my-card-actions"><button class="btn btn-outline btn-sm" data-view="${p.id}">Ver</button></div>
+    </div>`).join('');
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  RENDER — VERDADES INCÔMODAS
+// ╚══════════════════════════════════════════════════════════╝
+async function renderVerdades() {
+  hide('sticky-bar');
+  const allSnap = await db.ref('verdades').get();
+  const total = allSnap.exists() ? allSnap.numChildren() : 0;
+  const allVerdades = [];
+  if (allSnap.exists()) allSnap.forEach(c => allVerdades.push(c.val()));
+
+  let html = `${phaseProgress()}
+    <div class="sec-title">Verdades Incômodas</div>
+    <div class="sec-sub">"O que estamos fingindo que não é um problema?"</div>
+    <div class="info-box red"><strong>Escreva sem filtro.</strong> Este é o espaço para colocar na mesa o que ninguém está falando. Você pode assinar ou permanecer anônimo.</div>`;
+
+  if (S.myVerdades) {
+    html += `<div class="comp-done-card">
+      <span style="font-size:26px">✅</span>
+      <div><strong style="font-size:14px;color:var(--g)">Sua verdade foi registrada</strong><br>
+      <span style="font-size:13px;color:var(--muted)">${S.myVerdades.anonimo ? 'Enviada anonimamente' : `Assinada como ${escHtml(S.myVerdades.leader_name)}`}</span></div>
+    </div>
+    <button class="btn btn-outline btn-sm" id="btn-edit-verdade">✏️ Editar</button>
+    <div style="margin-top:28px"></div>`;
+  } else {
+    let anon = true;
+    html += `<div class="form-block">
+      <div class="form-block-title">Sua contribuição</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Escreva de 1 a 3 verdades incômodas sobre a empresa. Seja direto.</p>
+      <div class="toggle-group" id="toggle-anon">
+        <button class="toggle-btn active" data-anon="true">🎭 Anônimo</button>
+        <button class="toggle-btn" data-anon="false">✍️ Com meu nome</button>
+      </div>
+      <div class="field">
+        <textarea id="inp-verdade" rows="4" placeholder="Ex: Estamos aceitando retrabalho como se fosse normal.\nTemos processos que só funcionam porque uma pessoa específica segura."></textarea>
+      </div>
+      <button class="btn btn-primary" id="btn-save-verdade">Enviar</button>
+    </div>`;
+  }
+
+  html += `<div style="margin-top:8px"><div class="verdades-counter">
+    <strong>${total}</strong>verdade${total!==1?'s':''} registrada${total!==1?'s':''} até agora
+  </div>`;
+
+  if (S.myVerdades) {
+    html += allVerdades.map(v => `
+      <div class="verdade-card">
+        <div class="verdade-text">${escHtml(v.texto)}</div>
+        <div class="verdade-meta">${v.anonimo
+          ? '<span class="verdade-anon">🎭 Anônimo</span>'
+          : `✍️ ${escHtml(v.leader_name)} · ${escHtml(v.setor)}`}
+          · ${fmtDate(v.submitted_at)}
+        </div>
+      </div>`).join('');
+  } else {
+    html += `<div class="info-box blue" style="text-align:center">Envie sua verdade para ver as contribuições dos demais líderes.</div>`;
+  }
+  html += `</div>`;
+
+  $id('content-area').innerHTML = html;
+
+  let anonimo = true;
+  $id('toggle-anon')?.querySelectorAll('.toggle-btn').forEach(btn => btn.addEventListener('click', () => {
+    $id('toggle-anon').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    anonimo = btn.dataset.anon === 'true';
+  }));
+
+  $id('btn-save-verdade')?.addEventListener('click', async () => {
+    const texto = $id('inp-verdade')?.value.trim();
+    if (!texto) { toast('Escreva pelo menos uma verdade.', 'err'); return; }
+    const btn = $id('btn-save-verdade'); btn.disabled=true; btn.textContent='Salvando…';
+    try { await saveVerdade(texto, anonimo); toast('Verdade registrada!', 'ok'); await renderVerdades(); }
+    catch(e) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Enviar'; }
+  });
+
+  $id('btn-edit-verdade')?.addEventListener('click', () => { S.myVerdades = null; renderVerdades(); });
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  RENDER — VOTAÇÃO (por critérios)
+// ╚══════════════════════════════════════════════════════════╝
+function renderVotacao() {
+  const rated = Object.keys(S.myAvaliacoes).length;
+  const total = S.problemas.length;
+  show('sticky-bar');
+  $id('sticky-bar').innerHTML = `<div style="background:var(--pd);color:#fff;padding:9px 24px;text-align:center;font-size:14px">
+    <strong style="font-family:Montserrat,sans-serif;font-size:18px">${rated}</strong>/${total} problemas avaliados
+  </div>`;
+
+  $id('content-area').innerHTML = `
+    ${phaseProgress()}
+    <div class="sec-title">Avalie os Problemas</div>
+    <div class="sec-sub">Para cada problema, dê uma nota de 1 a 5 em três critérios. Clique em "Avaliar" para abrir o formulário.</div>
+    <div class="info-box blue">
+      <strong>Critérios de avaliação:</strong><br>
+      🎯 <strong>Impacto</strong> — Quanto isso afeta resultado, cliente ou equipe?<br>
+      ⚡ <strong>Urgência</strong> — Se não resolvermos agora, piora nos próximos 90 dias?<br>
+      🔧 <strong>Controle</strong> — A liderança aqui presente consegue agir sobre isso?
+    </div>
+    <div id="problems-list">${renderRatingCards()}</div>`;
+
+  bindRatingCards();
+}
+
+function renderRatingCards() {
+  if (!S.problemas.length) return `<div class="empty"><div class="empty-icon">📋</div><div class="empty-t">Nenhum problema cadastrado.</div></div>`;
+  return S.problemas.map((p,i) => {
+    const av = S.myAvaliacoes[p.id];
+    return `
+    <div class="v-card${av?' rated':''}" data-id="${p.id}">
+      <div class="v-card-head">
+        <div class="num-badge">${i+1}</div>
+        <div class="v-card-info">
+          <div class="v-card-title">${escHtml(p.titulo)}</div>
+          <div class="v-card-meta"><span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · ${escHtml(p.leader_name)}</div>
+        </div>
+        <div class="v-card-arrow">▾</div>
+      </div>
+      <div class="v-card-body">${detailGrid(p)}</div>
+      <div class="v-card-footer">
+        ${av ? `<div>
+          <span class="rated-label">✓ Avaliado</span>
+          <div class="score-preview" style="margin-top:6px">
+            🎯${av.impacto} ⚡${av.urgencia} 🔧${av.controle} · <strong>Score: ${av.score}/15</strong>
+          </div></div>` : '<span></span>'}
+        <button class="btn ${av?'btn-outline':'btn-primary'} btn-sm" data-rate="${p.id}">
+          ${av ? '✏️ Reeditar' : '🎯 Avaliar'}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function bindRatingCards() {
+  document.querySelectorAll('.v-card-head').forEach(h => h.addEventListener('click', (e) => {
+    if (e.target.closest('[data-rate]')) return;
+    const card = h.closest('.v-card');
+    card.classList.toggle('open');
+    card.querySelector('.v-card-body').style.display = card.classList.contains('open') ? 'block' : 'none';
+  }));
+  document.querySelectorAll('[data-rate]').forEach(btn =>
+    btn.addEventListener('click', (e) => { e.stopPropagation(); openRatingModal(btn.dataset.rate); }));
+}
+
+function openRatingModal(problemaId) {
+  const p = S.problemas.find(x => x.id === problemaId);
+  const existing = S.myAvaliacoes[problemaId];
+  const ev = (c,v) => existing?.[c] === v;
+
+  const critHtml = (key, label, hint, emoji) => `
+    <div class="crit-section">
+      <div class="crit-label">${emoji} ${label}</div>
+      <div class="crit-hint">${hint}</div>
+      <div class="crit-btns">
+        ${[1,2,3,4,5].map(v => `<button class="crit-btn${ev(key,v)?' sel':''}" data-key="${key}" data-val="${v}">${v}</button>`).join('')}
+      </div>
+    </div>`;
+
+  $id('modal-content').innerHTML = `
+    <div class="modal-title">Avaliar Problema</div>
+    <div style="margin-bottom:20px">
+      <strong style="font-size:15px">${escHtml(p.titulo)}</strong><br>
+      <span class="chip chip-a" style="margin-top:6px">${escHtml(p.setor_responsavel)}</span>
+    </div>
+    ${critHtml('impacto','Impacto no Negócio','Quanto isso afeta resultado, cliente ou equipe?','🎯')}
+    ${critHtml('urgencia','Urgência','Se não resolvermos agora, piora nos próximos 90 dias?','⚡')}
+    ${critHtml('controle','Controlabilidade','A liderança aqui presente consegue agir sobre isso?','🔧')}
+    <div class="crit-score-total" id="score-preview">
+      <span>Selecione os critérios para ver o score</span>
+    </div>
+    <button class="btn btn-primary btn-full" id="btn-save-rating" style="margin-top:18px" disabled>💾 Salvar Avaliação</button>`;
+
+  show('modal');
+
+  const vals = existing ? { impacto:existing.impacto, urgencia:existing.urgencia, controle:existing.controle } : {};
+
+  function updateScore() {
+    const { impacto, urgencia, controle } = vals;
+    if (impacto && urgencia && controle) {
+      const total = impacto + urgencia + controle;
+      $id('score-preview').innerHTML = `<strong>${total}</strong><span>/15 — Score desta avaliação</span>`;
+      $id('btn-save-rating').disabled = false;
+    }
+  }
+
+  if (existing) updateScore();
+
+  document.querySelectorAll('.crit-btn').forEach(btn => btn.addEventListener('click', () => {
+    const key = btn.dataset.key, val = parseInt(btn.dataset.val);
+    document.querySelectorAll(`.crit-btn[data-key="${key}"]`).forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    vals[key] = val;
+    updateScore();
+  }));
+
+  $id('btn-save-rating').addEventListener('click', async () => {
+    const saveBtn = $id('btn-save-rating');
+    saveBtn.disabled=true; saveBtn.textContent='Salvando…';
+    try {
+      await saveAvaliacao(problemaId, vals.impacto, vals.urgencia, vals.controle);
+      hide('modal'); toast('Avaliação salva!', 'ok');
+      $id('problems-list').innerHTML = renderRatingCards(); bindRatingCards();
+      // update sticky bar
+      const rated = Object.keys(S.myAvaliacoes).length;
+      $id('sticky-bar').querySelector('strong').textContent = rated;
+    } catch(e) { toast('Erro ao salvar.', 'err'); saveBtn.disabled=false; saveBtn.textContent='Salvar Avaliação'; }
+  });
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  RENDER — COMPROMISSOS
+// ╚══════════════════════════════════════════════════════════╝
+async function renderCompromissos() {
+  hide('sticky-bar');
+
+  let html = `${phaseProgress()}
+    <div class="sec-title">Compromissos Finais</div>
+    <div class="sec-sub">Cada líder registra seu compromisso para os próximos 90 dias.</div>`;
+
+  if (S.myCompromisso) {
+    html += `<div class="comp-done-card">
+      <span style="font-size:26px">✅</span>
+      <div><strong style="font-size:14px;color:var(--g)">Compromisso registrado!</strong><br>
+      <span style="font-size:13px;color:var(--muted)">Registrado em ${fmtDate(S.myCompromisso.submitted_at)}</span></div>
+    </div>
+    <div class="comp-card">
+      <div class="comp-card-header">
+        <div class="num-badge" style="background:var(--gl);color:var(--g)">✓</div>
+        <div><div class="comp-card-name">${escHtml(S.leader.name)}</div><div class="comp-card-setor">${escHtml(S.leader.setor)}</div></div>
+      </div>
+      <div class="comp-item">
+        <div class="comp-item-label">Compromisso para os próximos 90 dias</div>
+        <div class="comp-item-value">${escHtml(S.myCompromisso.c90)}</div>
+      </div>
+      <div class="comp-item">
+        <div class="comp-item-label">O que pode ser cobrado no próximo QRS</div>
+        <div class="comp-item-value">${escHtml(S.myCompromisso.cobranca)}</div>
+      </div>
+    </div>
+    <button class="btn btn-outline btn-sm" id="btn-edit-comp">✏️ Editar compromisso</button>`;
+  } else {
+    html += `<div class="info-box green"><strong>Seja específico.</strong> Em vez de "vou melhorar comunicação", escreva: "vou garantir que toda implantação tenha checklist, responsável e data de go-live registrada."</div>
+    <div class="form-block">
+      <div class="form-block-title">Seu compromisso</div>
+      <div class="field">
+        <label>O que eu assumo para os próximos 90 dias? *</label>
+        <textarea id="inp-c90" required rows="4" placeholder="Seja específico: o que vai mudar, com que métrica e quem vai ver?"></textarea>
+      </div>
+      <div class="field">
+        <label>O que pode ser cobrado de mim no próximo QRS? *</label>
+        <textarea id="inp-cobranca" required rows="3" placeholder="Ex: Taxa de implantação dentro do prazo acima de 90%"></textarea>
+      </div>
+      <button class="btn btn-green" id="btn-save-comp">💚 Registrar compromisso</button>
+    </div>`;
+  }
+
+  $id('content-area').innerHTML = html;
+
+  $id('btn-save-comp')?.addEventListener('click', async () => {
+    const c90 = $id('inp-c90')?.value.trim();
+    const cobranca = $id('inp-cobranca')?.value.trim();
+    if (!c90 || !cobranca) { toast('Preencha os dois campos.', 'err'); return; }
+    const btn = $id('btn-save-comp'); btn.disabled=true; btn.textContent='Salvando…';
+    try { await saveCompromisso(c90, cobranca); toast('Compromisso registrado!', 'ok'); await renderCompromissos(); }
+    catch(e) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Registrar compromisso'; }
+  });
+
+  $id('btn-edit-comp')?.addEventListener('click', () => { S.myCompromisso = null; renderCompromissos(); });
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  RENDER — ENCERRADO
+// ╚══════════════════════════════════════════════════════════╝
+async function renderEncerrado() {
+  hide('sticky-bar');
+  const scores = await getScores();
+  const ranked = [...S.problemas].sort((a,b) => (scores[b.id]?.total||0) - (scores[a.id]?.total||0));
+  const maxScore = scores[ranked[0]?.id]?.total || 1;
+
+  const cards = ranked.map((p,i) => {
+    const s = scores[p.id] || { impacto:0, urgencia:0, controle:0, total:0, count:0 };
+    return `
+    <div class="res-card ${i===0?'res-rank-1':''}">
+      <div class="rank">${i===0?'🥇':`#${i+1}`}</div>
+      <div class="res-info">
+        <div class="res-title">${escHtml(p.titulo)}</div>
+        <div class="res-meta"><span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · ${escHtml(p.leader_name)}</div>
+        <div class="res-criteria">
+          <span class="res-crit-item">🎯 Impacto <strong>${s.impacto}</strong></span>
+          <span class="res-crit-item">⚡ Urgência <strong>${s.urgencia}</strong></span>
+          <span class="res-crit-item">🔧 Controle <strong>${s.controle}</strong></span>
+          <span class="res-crit-item">${s.count} avaliações</span>
+        </div>
+        <div class="progress"><div class="progress-fill" style="width:${Math.round((s.total/maxScore)*100)}%"></div></div>
+      </div>
+      <div class="res-score"><strong>${s.total}</strong><small>pontos</small></div>
+    </div>`;
+  }).join('');
+
+  $id('content-area').innerHTML = `
+    ${phaseProgress()}
+    <div class="sec-title">Resultado do QRS Day</div>
+    <div class="sec-sub">${escHtml(S.evento.nome)} · Ranking por score (Impacto + Urgência + Controle)</div>
+    ${cards || '<div class="empty"><div class="empty-t">Nenhuma avaliação registrada.</div></div>'}`;
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  DETAIL / MODAL UTILS
+// ╚══════════════════════════════════════════════════════════╝
+function detailGrid(p) {
+  return `<div class="dg">
+    <div class="dg-full"><div class="dg-label">Descrição Resumida</div><div class="dg-value">${escHtml(p.descricao_resumida)}</div></div>
+    <div><div class="dg-label">Impacto Interno</div><div class="dg-value">${escHtml(p.impacto_interno)}</div></div>
+    <div><div class="dg-label">Impacto Externo</div><div class="dg-value">${escHtml(p.impacto_externo)}</div></div>
+    <div><div class="dg-label">Custo Direto</div><div class="dg-value">${escHtml(p.custo_direto)}</div></div>
+    <div><div class="dg-label">Custo de Oportunidade</div><div class="dg-value">${escHtml(p.custo_oportunidade)}</div></div>
+  </div>`;
+}
+
+function openModal(p) {
+  $id('modal-content').innerHTML = `
+    <div class="modal-title">${escHtml(p.titulo)}</div>
+    <div style="margin-bottom:16px">
+      <span class="chip chip-a">${escHtml(p.setor_responsavel)}</span>
+      <span class="chip chip-p" style="margin-left:6px">Por: ${escHtml(p.leader_name)} · ${escHtml(p.setor_autor)}</span>
+      <span style="font-size:12px;color:var(--muted);margin-left:8px">${fmtDate(p.created_at)}</span>
+    </div>
+    ${detailGrid(p)}`;
+  show('modal');
+}
+
+$id('modal-close').addEventListener('click', () => hide('modal'));
+$id('modal').addEventListener('click', (e) => { if(e.target===$id('modal')) hide('modal'); });
+
+// ╔══════════════════════════════════════════════════════════╗
+//  ADMIN VIEWS (modais de leitura)
+// ╚══════════════════════════════════════════════════════════╝
+async function adminViewPreQrs() {
+  const snap = await db.ref('pre_qrs').get();
+  if (!snap.exists()) { toast('Nenhuma resposta ainda.', 'info'); return; }
+  let html = `<div class="modal-title">Respostas do Pré-QRS</div>`;
+  snap.forEach(child => {
+    const r = child.val();
+    html += `<div class="resp-card">
+      <div class="resp-card-header">
+        <div class="num-badge">${escHtml(r.leader_name?.charAt(0)||'?')}</div>
+        <div><div class="resp-card-name">${escHtml(r.leader_name)}</div><div class="resp-card-setor">${escHtml(r.setor)} · ${fmtDate(r.submitted_at)}</div></div>
+      </div>
+      ${PRE_QRS_QUESTIONS.map((q,i) => `
+        <div class="resp-item">
+          <div class="resp-item-label">P${i+1}. ${escHtml(q.label)}</div>
+          <div class="resp-item-value">${escHtml(r[q.key]||'—')}</div>
+        </div>`).join('')}
+    </div>`;
+  });
+  $id('modal-content').innerHTML = html;
+  show('modal');
+}
+
+async function adminViewVerdades() {
+  const snap = await db.ref('verdades').get();
+  if (!snap.exists()) { toast('Nenhuma verdade ainda.', 'info'); return; }
+  let html = `<div class="modal-title">Verdades Incômodas</div>`;
+  snap.forEach(child => {
+    const v = child.val();
+    html += `<div class="verdade-card">
+      <div class="verdade-text">${escHtml(v.texto)}</div>
+      <div class="verdade-meta">${v.anonimo
+        ? '<span class="verdade-anon">🎭 Anônimo</span>'
+        : `✍️ ${escHtml(v.leader_name)} · ${escHtml(v.setor)}`}
+        · ${fmtDate(v.submitted_at)}</div>
+    </div>`;
+  });
+  $id('modal-content').innerHTML = html;
+  show('modal');
+}
+
+async function adminViewCompromissos() {
+  const snap = await db.ref('compromissos').get();
+  if (!snap.exists()) { toast('Nenhum compromisso ainda.', 'info'); return; }
+  let html = `<div class="modal-title">Compromissos Finais</div>`;
+  snap.forEach(child => {
+    const c = child.val();
+    html += `<div class="comp-card">
+      <div class="comp-card-header">
+        <div class="num-badge" style="background:var(--gl);color:var(--g)">✓</div>
+        <div><div class="comp-card-name">${escHtml(c.leader_name)}</div><div class="comp-card-setor">${escHtml(c.setor)}</div></div>
+      </div>
+      <div class="comp-item">
+        <div class="comp-item-label">Compromisso para os próximos 90 dias</div>
+        <div class="comp-item-value">${escHtml(c.c90)}</div>
+      </div>
+      <div class="comp-item">
+        <div class="comp-item-label">O que pode ser cobrado no próximo QRS</div>
+        <div class="comp-item-value">${escHtml(c.cobranca)}</div>
+      </div>
+    </div>`;
+  });
+  $id('modal-content').innerHTML = html;
+  show('modal');
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  EXCEL
+// ╚══════════════════════════════════════════════════════════╝
+async function downloadExcel() {
+  const scores = await getScores();
+  const wb = XLSX.utils.book_new();
+
+  // Aba: Problemas
+  const ranked = [...S.problemas].sort((a,b) => (scores[b.id]?.total||0) - (scores[a.id]?.total||0));
+  const hProb = ['Nº','Título','Setor Responsável','Cadastrado por','Setor','Descrição','Impacto Interno','Impacto Externo','Custo Direto','Custo de Oportunidade','Score Total','Avaliações'];
+  const rProb = ranked.map((p,i) => {
+    const s = scores[p.id]||{total:0,count:0};
+    return [i+1, p.titulo, p.setor_responsavel, p.leader_name, p.setor_autor, p.descricao_resumida, p.impacto_interno, p.impacto_externo, p.custo_direto, p.custo_oportunidade, s.total, s.count];
+  });
+  const ws1 = XLSX.utils.aoa_to_sheet([hProb,...rProb]);
+  ws1['!cols'] = [{wch:4},{wch:35},{wch:22},{wch:20},{wch:22},{wch:40},{wch:40},{wch:40},{wch:40},{wch:40},{wch:10},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Problemas');
+
+  // Aba: Pré-QRS
+  const pqSnap = await db.ref('pre_qrs').get();
+  if (pqSnap.exists()) {
+    const hPq = ['Líder','Setor','P1','P2','P3','P4','P5','P6','P7'];
+    const rPq = [];
+    pqSnap.forEach(c => {
+      const r = c.val();
+      rPq.push([r.leader_name, r.setor, r.q1, r.q2, r.q3, r.q4, r.q5, r.q6, r.q7]);
+    });
+    const ws2 = XLSX.utils.aoa_to_sheet([hPq,...rPq]);
+    ws2['!cols'] = [{wch:20},{wch:22},{wch:45},{wch:45},{wch:45},{wch:45},{wch:45},{wch:45},{wch:45}];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Pré-QRS');
+  }
+
+  // Aba: Verdades
+  const vdSnap = await db.ref('verdades').get();
+  if (vdSnap.exists()) {
+    const hVd = ['Texto','Tipo','Líder','Setor','Data'];
+    const rVd = [];
+    vdSnap.forEach(c => {
+      const v = c.val();
+      rVd.push([v.texto, v.anonimo?'Anônimo':'Nominal', v.anonimo?'—':(v.leader_name||'—'), v.anonimo?'—':(v.setor||'—'), fmtDate(v.submitted_at)]);
+    });
+    const ws3 = XLSX.utils.aoa_to_sheet([hVd,...rVd]);
+    ws3['!cols'] = [{wch:60},{wch:12},{wch:20},{wch:22},{wch:14}];
+    XLSX.utils.book_append_sheet(wb, ws3, 'Verdades Incômodas');
+  }
+
+  // Aba: Compromissos
+  const cmSnap = await db.ref('compromissos').get();
+  if (cmSnap.exists()) {
+    const hCm = ['Líder','Setor','Compromisso 90 dias','Pode cobrar no próximo QRS'];
+    const rCm = [];
+    cmSnap.forEach(c => {
+      const v = c.val();
+      rCm.push([v.leader_name, v.setor, v.c90, v.cobranca]);
+    });
+    const ws4 = XLSX.utils.aoa_to_sheet([hCm,...rCm]);
+    ws4['!cols'] = [{wch:20},{wch:22},{wch:60},{wch:60}];
+    XLSX.utils.book_append_sheet(wb, ws4, 'Compromissos');
+  }
+
+  const fn = `qrs-day-${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.xlsx`;
+  XLSX.writeFile(wb, fn);
+  toast('Excel gerado com todas as abas!', 'ok');
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  PDF
+// ╚══════════════════════════════════════════════════════════╝
+async function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'p', unit:'mm', format:'a4' });
+  const W=210, M=18, LW=W-M*2;
+  const primary=[13,43,107], accent=[196,154,46], muted=[113,128,150];
+  const scores = await getScores();
+  let y = 0;
+
+  function np() { doc.addPage(); y=M; }
+  function cy(n=20) { if(y+n>280) np(); }
+  function tx(text,x,yp,{size=11,color=[26,32,44],bold=false}={}) {
+    doc.setFontSize(size); doc.setTextColor(...color);
+    doc.setFont('helvetica',bold?'bold':'normal');
+    doc.text(String(text||''),x,yp);
+  }
+
+  // Capa
+  doc.setFillColor(...primary); doc.rect(0,0,W,48,'F');
+  tx('ECG',M,22,{size:24,color:[255,255,255],bold:true});
+  doc.setTextColor(...accent); doc.setFont('helvetica','bold'); doc.setFontSize(24); doc.text('NOW',M+27,22);
+  tx('QRS Day · Reunião de Líderes',M,33,{size:12,color:[220,230,255]});
+  tx(S.evento.nome,M,42,{size:10,color:[180,200,240]});
+  y=60;
+  tx(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`,M,y,{size:10,color:muted}); y+=6;
+  tx(`Fase: ${phaseLabel(S.evento.fase)} · ${S.problemas.length} problemas`,M,y,{size:10,color:muted}); y+=16;
+
+  // Ranking
+  const ranked = [...S.problemas].sort((a,b)=>(scores[b.id]?.total||0)-(scores[a.id]?.total||0));
+  if (ranked.length) {
+    cy(16); tx('RANKING DOS PROBLEMAS',M,y,{size:10,color:muted,bold:true}); y+=8;
+    doc.autoTable({
+      startY:y,
+      head:[['#','Problema','Setor','Score','Av.']],
+      body:ranked.map((p,i)=>[`#${i+1}`,p.titulo,p.setor_responsavel,String(scores[p.id]?.total||0),String(scores[p.id]?.count||0)]),
+      styles:{font:'helvetica',fontSize:9},
+      headStyles:{fillColor:primary,textColor:255,fontStyle:'bold'},
+      columnStyles:{0:{cellWidth:12,halign:'center'},3:{cellWidth:16,halign:'center'},4:{cellWidth:12,halign:'center'}},
+      margin:{left:M,right:M},
+    });
+    y = doc.lastAutoTable.finalY + 14;
+  }
+
+  // Problemas detalhados
+  ranked.forEach((p,i) => {
+    cy(40); doc.setDrawColor(...primary); doc.setLineWidth(.5); doc.line(M,y,W-M,y); y+=8;
+    const titleL = doc.splitTextToSize(p.titulo,LW-14);
+    tx(`${i+1}.`,M,y,{size:14,color:primary,bold:true});
+    titleL.forEach((l,li)=>tx(l,M+10,y+li*7,{size:13,bold:true})); y+=titleL.length*7+2;
+    tx(`Setor: ${p.setor_responsavel} · Por: ${p.leader_name} · Score: ${scores[p.id]?.total||0}`,M,y,{size:9,color:muted}); y+=8;
+    const c1=M,c2=M+LW/2+4,cW=LW/2-4;
+    ['descricao_resumida'].forEach(k=>{cy(14);tx(k.replace(/_/g,' ').toUpperCase(),c1,y,{size:8,color:muted,bold:true});y+=5;doc.splitTextToSize(p[k],LW).forEach(l=>{cy(5);tx(l,c1,y,{size:10});y+=5;});y+=3;});
+    cy(24);let y1=y,y2=y;
+    tx('IMPACTO INTERNO',c1,y1,{size:8,color:muted,bold:true});y1+=5;doc.splitTextToSize(p.impacto_interno,cW).forEach(l=>{tx(l,c1,y1,{size:10});y1+=5;});
+    tx('IMPACTO EXTERNO',c2,y2,{size:8,color:muted,bold:true});y2+=5;doc.splitTextToSize(p.impacto_externo,cW).forEach(l=>{tx(l,c2,y2,{size:10});y2+=5;});
+    y=Math.max(y1,y2)+4;
+    cy(24);y1=y;y2=y;
+    tx('CUSTO DIRETO',c1,y1,{size:8,color:muted,bold:true});y1+=5;doc.splitTextToSize(p.custo_direto,cW).forEach(l=>{tx(l,c1,y1,{size:10});y1+=5;});
+    tx('CUSTO DE OPORTUNIDADE',c2,y2,{size:8,color:muted,bold:true});y2+=5;doc.splitTextToSize(p.custo_oportunidade,cW).forEach(l=>{tx(l,c2,y2,{size:10});y2+=5;});
+    y=Math.max(y1,y2)+12;
+  });
+
+  // Compromissos
+  const cmSnap = await db.ref('compromissos').get();
+  if (cmSnap.exists()) {
+    np();
+    doc.setFillColor(...primary); doc.rect(0,0,W,26,'F');
+    tx('Compromissos dos Líderes',M,17,{size:14,color:[255,255,255],bold:true});
+    const cmRows=[];
+    cmSnap.forEach(c=>{const v=c.val();cmRows.push([v.leader_name,v.setor,v.c90,v.cobranca]);});
+    doc.autoTable({startY:34,head:[['Líder','Setor','Compromisso','Cobrar no próximo QRS']],body:cmRows,styles:{font:'helvetica',fontSize:9},headStyles:{fillColor:primary,textColor:255},margin:{left:M,right:M}});
+  }
+
+  doc.save(`qrs-day-${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.pdf`);
+  toast('PDF gerado!', 'ok');
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  REFRESH
+// ╚══════════════════════════════════════════════════════════╝
+async function refresh() {
+  await loadEvento(); await loadProblemas();
+  await loadMyPreQrs(); await loadMyVerdades();
+  await loadMyAvaliacoes(); await loadMyCompromisso();
+  renderHeader(); await renderAdmin();
+  const f = S.evento.fase;
+  if      (f === 'pre_qrs')       renderPreQrs();
+  else if (f === 'submissao')     renderSubmissao();
+  else if (f === 'verdades')      await renderVerdades();
+  else if (f === 'votacao')       renderVotacao();
+  else if (f === 'compromissos')  await renderCompromissos();
+  else if (f === 'encerrado')     await renderEncerrado();
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  LOGIN / LOGOUT
+// ╚══════════════════════════════════════════════════════════╝
+const sel = $id('sel-leader');
+LEADERS.forEach(l => {
+  const o = document.createElement('option');
+  o.value = l.id; o.textContent = `${l.name} · ${l.setor}`;
+  sel.appendChild(o);
+});
+
+sel.addEventListener('change', () => {
+  const found = LEADERS.find(l => l.id === parseInt(sel.value));
+  $id('field-pin').hidden = !found;
+  $id('inp-pin').value = '';
+  if (found) $id('inp-pin').focus();
+});
+
+$id('inp-pin').addEventListener('input', (e) => {
+  e.target.value = e.target.value.replace(/\D/g,'').slice(0,4);
+  if (e.target.value.length === 4) $id('btn-enter').click();
+});
+
+$id('btn-enter').addEventListener('click', async () => {
+  const id = parseInt(sel.value);
+  if (!id) { toast('Selecione seu nome.', 'err'); return; }
+  const leader = LEADERS.find(l => l.id === id);
+  const pin = $id('inp-pin').value;
+  if (!pin) { toast('Digite seu PIN.', 'err'); $id('inp-pin').focus(); return; }
+  if (pin !== leader.pin) { toast('PIN incorreto.', 'err'); $id('inp-pin').value=''; $id('inp-pin').focus(); return; }
+  S.leader = leader;
+  localStorage.setItem('ecg_leader', JSON.stringify(S.leader));
+  const btn = $id('btn-enter'); btn.disabled=true; btn.textContent='Carregando…';
+  try { await refresh(); hide('view-login'); show('view-app'); }
+  catch(e) { btn.disabled=false; btn.textContent='Entrar'; toast('Erro de conexão com o Firebase.','err'); console.error(e); }
+});
+
+$id('btn-logout').addEventListener('click', () => {
+  S = { leader:null, evento:null, problemas:[], myPreQrs:null, myVerdades:null, myAvaliacoes:{}, myCompromisso:null };
+  localStorage.removeItem('ecg_leader');
+  hide('view-app'); show('view-login');
+});
+
+// Retomada automática de sessão
+(async () => {
+  const saved = localStorage.getItem('ecg_leader');
+  if (saved) {
+    S.leader = JSON.parse(saved);
+    try { await refresh(); hide('view-login'); show('view-app'); }
+    catch(e) { localStorage.removeItem('ecg_leader'); }
+  }
+})();
+</script>
+</body>
+</html>
