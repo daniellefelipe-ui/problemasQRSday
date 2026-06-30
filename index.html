@@ -132,6 +132,18 @@
     .resp-item-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:5px}
     .resp-item-value{font-size:14px;line-height:1.65;color:var(--text)}
 
+    /* ── Tipo selector (Problema / Conflito) ────────────── */
+    .tipo-selector{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}
+    .tipo-card{border:2px solid var(--border);border-radius:var(--r);padding:18px 16px;background:#fff;cursor:pointer;text-align:left;transition:border-color .18s,background .18s,box-shadow .18s;font-family:inherit;width:100%}
+    .tipo-card:hover{border-color:var(--p);background:#F5F0FF}
+    .tipo-card.active{border-color:var(--p);background:#F5F0FF;box-shadow:0 0 0 3px rgba(99,57,185,.12)}
+    .tipo-card[data-tipo="conflito"]:hover,.tipo-card[data-tipo="conflito"].active{border-color:#D97706;background:#FFFBEB;box-shadow:0 0 0 3px rgba(217,119,6,.12)}
+    .tipo-card-icon{font-size:26px;margin-bottom:8px;display:block}
+    .tipo-card-title{font-family:'Montserrat',sans-serif;font-weight:700;font-size:14px;color:var(--p);margin-bottom:4px}
+    .tipo-card[data-tipo="conflito"] .tipo-card-title{color:#D97706}
+    .tipo-card[data-tipo="conflito"].active .tipo-card-title{color:#92400E}
+    .tipo-card-desc{font-size:12px;color:var(--muted);line-height:1.45}
+
     /* ── Criteria rating ─────────────────────────────────── */
     .criteria-bar{background:var(--pd);color:#fff;padding:9px 24px;text-align:center;font-size:14px;position:sticky;top:62px;z-index:90}
     .criteria-bar strong{font-family:'Montserrat',sans-serif;font-size:18px}
@@ -1127,8 +1139,8 @@ function renderSubmissao() {
     tabKeys.forEach(t => { const el=$id(`tab-${t}`); if(el) el.hidden=(t!==btn.dataset.tab); });
   }));
 
-  document.querySelectorAll('#toggle-tipo-entrada .toggle-btn').forEach(btn => btn.addEventListener('click', () => {
-    document.querySelectorAll('#toggle-tipo-entrada .toggle-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#toggle-tipo-entrada .tipo-card').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('#toggle-tipo-entrada .tipo-card').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     const tipo = btn.dataset.tipo;
     $id('form-problem').dataset.tipo = tipo;
@@ -1179,9 +1191,17 @@ function renderSubmissao() {
 function renderForm() {
   const opts = SETORES.map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('');
   return `
-    <div class="toggle-group" id="toggle-tipo-entrada">
-      <button type="button" class="toggle-btn active" data-tipo="problema">📋 Problema</button>
-      <button type="button" class="toggle-btn" data-tipo="conflito">🤝 Conflito</button>
+    <div class="tipo-selector" id="toggle-tipo-entrada">
+      <button type="button" class="tipo-card active" data-tipo="problema">
+        <span class="tipo-card-icon">📋</span>
+        <div class="tipo-card-title">Problema</div>
+        <div class="tipo-card-desc">Situação, processo ou resultado que precisa ser resolvido pela liderança</div>
+      </button>
+      <button type="button" class="tipo-card" data-tipo="conflito">
+        <span class="tipo-card-icon">🤝</span>
+        <div class="tipo-card-title">Conflito</div>
+        <div class="tipo-card-desc">Tensão entre pessoas, áreas ou processos que precisa de um acordo</div>
+      </button>
     </div>
     <form id="form-problem" data-tipo="problema">
     <div id="bloco-problema">
