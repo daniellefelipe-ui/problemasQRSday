@@ -1106,26 +1106,20 @@ function renderIndicadores() {
 function renderSubmissao() {
   hide('sticky-bar');
   const mine = S.problemas.filter(p => Number(p.leader_id) === Number(S.leader.id));
-  const checkinAlert = !S.myPreQrs ? `<span style="font-size:10px;background:var(--redl);color:var(--red);padding:2px 7px;border-radius:10px;font-weight:700;margin-left:5px">!</span>` : '';
   const adminTab   = S.leader.isAdmin ? `<button class="tab" data-tab="todos">📂 Todos (${S.problemas.length})</button>` : '';
   const adminPanel = S.leader.isAdmin ? `<div id="tab-todos" hidden>${renderAllProblems()}</div>` : '';
-  const tabKeys    = S.leader.isAdmin ? ['checkin','cadastrar','meus','todos'] : ['checkin','cadastrar','meus'];
+  const tabKeys    = S.leader.isAdmin ? ['cadastrar','meus','todos'] : ['cadastrar','meus'];
 
   $id('content-area').innerHTML = `
     ${phaseProgress()}
     <div class="tabs">
-      <button class="tab" data-tab="checkin">✍️ Check-in${checkinAlert}</button>
       <button class="tab active" data-tab="cadastrar">✏️ Cadastrar Problema</button>
       <button class="tab" data-tab="meus">📋 Meus (${mine.length})</button>
       ${adminTab}
     </div>
-    <div id="tab-checkin" hidden></div>
     <div id="tab-cadastrar">${renderForm()}</div>
     <div id="tab-meus" hidden>${renderMyProblems(mine)}</div>
     ${adminPanel}`;
-
-  // Renderiza check-in dentro da aba
-  renderCheckinInTab();
 
   document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
