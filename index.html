@@ -561,8 +561,10 @@ async function renderAdmin() {
   let btns = '';
   if (nextPhase) btns += `<button class="btn btn-primary" id="btn-next-phase">▶ Avançar para ${phaseLabel(nextPhase)}</button>`;
   if (prevPhase && f !== 'encerrado') btns += `<button class="btn btn-outline" id="btn-prev-phase">↩ Voltar para ${phaseLabel(prevPhase)}</button>`;
+  if (f === 'encerrado') btns += `<button class="btn btn-green" id="btn-novo-qrs">🔄 Novo QRS Day</button>`;
   btns += `<button class="btn btn-accent" id="btn-pdf">⬇ PDF</button>`;
   btns += `<button class="btn btn-outline" id="btn-excel">📊 Excel</button>`;
+  btns += `<button class="btn btn-outline" id="btn-historico">🗂 Histórico</button>`;
   if (f === 'pre_qrs' || f === 'submissao' || f === 'encerrado')
     btns += `<button class="btn btn-outline" id="btn-view-preqrs">👁 Ver Pré-QRS</button>`;
   if (f === 'verdades' || f === 'encerrado')
@@ -574,8 +576,10 @@ async function renderAdmin() {
 
   $id('btn-next-phase')?.addEventListener('click', () => changePhase(nextPhase));
   $id('btn-prev-phase')?.addEventListener('click', () => changePhase(prevPhase));
+  $id('btn-novo-qrs')?.addEventListener('click', novoQrsDay);
   $id('btn-pdf')?.addEventListener('click', downloadPDF);
   $id('btn-excel')?.addEventListener('click', downloadExcel);
+  $id('btn-historico')?.addEventListener('click', adminViewHistorico);
   $id('btn-view-preqrs')?.addEventListener('click', adminViewPreQrs);
   $id('btn-view-verdades')?.addEventListener('click', adminViewVerdades);
   $id('btn-view-comp')?.addEventListener('click', adminViewCompromissos);
@@ -584,6 +588,175 @@ async function renderAdmin() {
 async function changePhase(fase) {
   try { await updateFase(fase); toast(`Fase: ${phaseLabel(fase)}`, 'ok'); await refresh(); }
   catch(e) { toast('Erro ao alterar fase.', 'err'); }
+}
+
+async function novoQrsDay() {
+  if (!confirm('Arquivar o QRS Day atual e iniciar um novo?\n\nTodos os dados ficam salvos no Histórico.')) return;
+
+  const btn = $id('btn-novo-qrs');
+  if (btn) { btn.disabled = true; btn.textContent = 'Arquivando…'; }
+
+  try {
+    // Lê todos os dados atuais
+    const [evSnap, prSnap, pqSnap, vdSnap, avSnap, cmSnap, vtSnap] = await Promise.all([
+      db.ref('evento').get(),
+      db.ref('problemas').get(),
+      db.ref('pre_qrs').get(),
+      db.ref('verdades').get(),
+      db.ref('avaliacoes').get(),
+      db.ref('compromissos').get(),
+      db.ref('votos').get(),
+    ]);
+
+    // Monta o pacote do histórico
+    const id = Date.now();
+    const arquivo = {
+      evento:       evSnap.exists()  ? evSnap.val()                       : {},
+      problemas:    prSnap.exists()  ? prSnap.val()                       : {},
+      pre_qrs:      pqSnap.exists()  ? pqSnap.val()                       : {},
+      verdades:     vdSnap.exists()  ? vdSnap.val()                       : {},
+      avaliacoes:   avSnap.exists()  ? avSnap.val()                       : {},
+      compromissos: cmSnap.exists()  ? cmSnap.val()                       : {},
+      votos:        vtSnap.exists()  ? vtSnap.val()                       : {},
+      arquivado_em: id,
+    };
+
+    // Salva no histórico e limpa coleções ativas
+    await db.ref(`historico/${id}`).set(arquivo);
+    await Promise.all([
+      db.ref('problemas').remove(),
+      db.ref('pre_qrs').remove(),
+      db.ref('verdades').remove(),
+      db.ref('avaliacoes').remove(),
+      db.ref('compromissos').remove(),
+      db.ref('votos').remove(),
+    ]);
+
+    // Cria novo evento
+    const novoNome = 'QRS Day · ' + new Date().toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' });
+    await db.ref('evento').set({ nome: novoNome, fase: 'pre_qrs' });
+
+    toast('Novo QRS Day iniciado!', 'ok');
+    await refresh();
+  } catch(e) {
+    toast('Erro ao arquivar. Tente novamente.', 'err');
+    console.error(e);
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Novo QRS Day'; }
+  }
+}
+
+async function adminViewHistorico() {
+  const snap = await db.ref('historico').get();
+  if (!snap.exists()) { toast('Nenhum QRS Day arquivado ainda.', 'info'); return; }
+
+  const itens = [];
+  snap.forEach(c => itens.push({ id: c.key, ...c.val() }));
+  itens.sort((a, b) => b.arquivado_em - a.arquivado_em);
+
+  const lista = itens.map(item => {
+    const ev = item.evento || {};
+    const nProb = Object.keys(item.problemas || {}).length;
+    const nComp = Object.keys(item.compromissos || {}).length;
+    const data = new Date(item.arquivado_em).toLocaleDateString('pt-BR');
+    return `
+      <div class="resp-card" style="margin-bottom:14px">
+        <div class="resp-card-header">
+          <div class="num-badge" style="background:var(--al);color:#8B6914">📅</div>
+          <div>
+            <div class="resp-card-name">${escHtml(ev.nome || 'QRS Day')}</div>
+            <div class="resp-card-setor">Arquivado em ${data} · ${nProb} problemas · ${nComp} compromissos</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" data-hist-prob="${item.id}">📋 Ver Problemas</button>
+          <button class="btn btn-outline btn-sm" data-hist-comp="${item.id}">💚 Ver Compromissos</button>
+          <button class="btn btn-outline btn-sm" data-hist-pq="${item.id}">📝 Ver Pré-QRS</button>
+          <button class="btn btn-outline btn-sm" data-hist-vd="${item.id}">💬 Ver Verdades</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  $id('modal-content').innerHTML = `<div class="modal-title">🗂 Histórico de QRS Days</div>${lista}`;
+  show('modal');
+
+  // Bind botões de detalhe
+  document.querySelectorAll('[data-hist-prob]').forEach(btn => btn.addEventListener('click', () => {
+    const item = itens.find(i => i.id === btn.dataset.histProb);
+    const probs = Object.values(item.problemas || {});
+    const avs = item.avaliacoes || {};
+    // calcular scores
+    const scores = {};
+    Object.values(avs).forEach(a => {
+      if (!scores[a.problema_id]) scores[a.problema_id] = { total: 0, count: 0 };
+      scores[a.problema_id].total += a.score;
+      scores[a.problema_id].count++;
+    });
+    // fallback para votos antigos
+    const votos = item.votos || {};
+    const votosPorProb = {};
+    Object.values(votos).forEach(v => { votosPorProb[v.problema_id] = (votosPorProb[v.problema_id]||0)+1; });
+
+    const rows = probs.sort((a,b) => (scores[b.id||b.titulo]?.total||0) - (scores[a.id||a.titulo]?.total||0))
+      .map((p,i) => {
+        const sc = scores[p.id] || {};
+        const vt = votosPorProb[p.id] || 0;
+        return `<div class="my-card">
+          <div class="num-badge">${i+1}</div>
+          <div class="my-card-body">
+            <div class="my-card-title">${escHtml(p.titulo)}</div>
+            <div class="my-card-meta"><span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · ${escHtml(p.leader_name)}
+              ${sc.total ? ` · <strong>${sc.total} pts</strong>` : vt ? ` · <strong>${vt} votos</strong>` : ''}
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    $id('modal-content').innerHTML = `<button class="btn btn-outline btn-sm" id="btn-back-hist" style="margin-bottom:16px">← Voltar</button>
+      <div class="modal-title">Problemas — ${escHtml((item.evento||{}).nome||'')}</div>${rows||'<div class="empty"><div class="empty-t">Sem problemas.</div></div>'}`;
+    $id('btn-back-hist').addEventListener('click', adminViewHistorico);
+  }));
+
+  document.querySelectorAll('[data-hist-comp]').forEach(btn => btn.addEventListener('click', () => {
+    const item = itens.find(i => i.id === btn.dataset.histComp);
+    const comps = Object.values(item.compromissos || {});
+    const rows = comps.map(c => `<div class="comp-card">
+      <div class="comp-card-header">
+        <div class="num-badge" style="background:var(--gl);color:var(--g)">✓</div>
+        <div><div class="comp-card-name">${escHtml(c.leader_name)}</div><div class="comp-card-setor">${escHtml(c.setor)}</div></div>
+      </div>
+      <div class="comp-item"><div class="comp-item-label">Compromisso 90 dias</div><div class="comp-item-value">${escHtml(c.c90)}</div></div>
+      <div class="comp-item"><div class="comp-item-label">Cobrar no próximo QRS</div><div class="comp-item-value">${escHtml(c.cobranca)}</div></div>
+    </div>`).join('');
+    $id('modal-content').innerHTML = `<button class="btn btn-outline btn-sm" id="btn-back-hist" style="margin-bottom:16px">← Voltar</button>
+      <div class="modal-title">Compromissos — ${escHtml((item.evento||{}).nome||'')}</div>${rows||'<div class="empty"><div class="empty-t">Sem compromissos.</div></div>'}`;
+    $id('btn-back-hist').addEventListener('click', adminViewHistorico);
+  }));
+
+  document.querySelectorAll('[data-hist-pq]').forEach(btn => btn.addEventListener('click', () => {
+    const item = itens.find(i => i.id === btn.dataset.histPq);
+    const resps = Object.values(item.pre_qrs || {});
+    const rows = resps.map(r => `<div class="resp-card">
+      <div class="resp-card-header">
+        <div class="num-badge">${escHtml((r.leader_name||'?').charAt(0))}</div>
+        <div><div class="resp-card-name">${escHtml(r.leader_name)}</div><div class="resp-card-setor">${escHtml(r.setor)}</div></div>
+      </div>
+      ${PRE_QRS_QUESTIONS.map((q,i)=>`<div class="resp-item"><div class="resp-item-label">P${i+1}. ${escHtml(q.label)}</div><div class="resp-item-value">${escHtml(r[q.key]||'—')}</div></div>`).join('')}
+    </div>`).join('');
+    $id('modal-content').innerHTML = `<button class="btn btn-outline btn-sm" id="btn-back-hist" style="margin-bottom:16px">← Voltar</button>
+      <div class="modal-title">Pré-QRS — ${escHtml((item.evento||{}).nome||'')}</div>${rows||'<div class="empty"><div class="empty-t">Sem respostas.</div></div>'}`;
+    $id('btn-back-hist').addEventListener('click', adminViewHistorico);
+  }));
+
+  document.querySelectorAll('[data-hist-vd]').forEach(btn => btn.addEventListener('click', () => {
+    const item = itens.find(i => i.id === btn.dataset.histVd);
+    const vds = Object.values(item.verdades || {});
+    const rows = vds.map(v => `<div class="verdade-card">
+      <div class="verdade-text">${escHtml(v.texto)}</div>
+      <div class="verdade-meta">${v.anonimo ? '<span class="verdade-anon">🎭 Anônimo</span>' : `✍️ ${escHtml(v.leader_name)}`}</div>
+    </div>`).join('');
+    $id('modal-content').innerHTML = `<button class="btn btn-outline btn-sm" id="btn-back-hist" style="margin-bottom:16px">← Voltar</button>
+      <div class="modal-title">Verdades — ${escHtml((item.evento||{}).nome||'')}</div>${rows||'<div class="empty"><div class="empty-t">Sem verdades.</div></div>'}`;
+    $id('btn-back-hist').addEventListener('click', adminViewHistorico);
+  }));
 }
 
 // ╔══════════════════════════════════════════════════════════╗
