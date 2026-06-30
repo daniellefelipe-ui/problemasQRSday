@@ -65,7 +65,6 @@
     .fase-pre_qrs{background:#F0E6FF;color:#6B21A8}
     .fase-indicadores{background:#E6FFFA;color:#0F766E}
     .fase-submissao{background:var(--al);color:#8B6914}
-    .fase-verdades{background:#FFF0F0;color:#9B2335}
     .fase-votacao{background:#EBF8FF;color:#2B6CB0}
     .fase-compromissos{background:var(--gl);color:var(--g)}
     .fase-encerrado{background:#F1F5F9;color:#475569}
@@ -132,17 +131,6 @@
     .resp-item{margin-bottom:14px}
     .resp-item-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:5px}
     .resp-item-value{font-size:14px;line-height:1.65;color:var(--text)}
-
-    /* ── Verdades Incômodas ──────────────────────────────── */
-    .verdade-card{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px;margin-bottom:12px;border-left:4px solid var(--red)}
-    .verdade-text{font-size:15px;line-height:1.7;color:var(--text);margin-bottom:10px}
-    .verdade-meta{font-size:12px;color:var(--muted)}
-    .verdade-anon{font-size:12px;color:var(--red);font-weight:600}
-    .toggle-group{display:flex;gap:0;margin-bottom:20px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden}
-    .toggle-btn{flex:1;padding:10px;border:none;background:#fff;font-family:'Montserrat',sans-serif;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s;color:var(--muted)}
-    .toggle-btn.active{background:var(--p);color:#fff}
-    .verdades-counter{background:var(--redl);border:1.5px solid #FED7D7;border-radius:var(--r);padding:16px 20px;margin-bottom:20px;text-align:center;font-size:14px;color:var(--red);font-weight:500}
-    .verdades-counter strong{font-size:28px;display:block;font-family:'Montserrat',sans-serif;margin-bottom:4px}
 
     /* ── Criteria rating ─────────────────────────────────── */
     .criteria-bar{background:var(--pd);color:#fff;padding:9px 24px;text-align:center;font-size:14px;position:sticky;top:62px;z-index:90}
@@ -359,13 +347,13 @@ const LEADERS = [
 
 const SETORES = [...new Set(LEADERS.map(l => l.setor))];
 
-const PHASES = ['manual','indicadores','pre_qrs','submissao','verdades','votacao','compromissos','encerrado'];
+const PHASES = ['manual','indicadores','pre_qrs','submissao','votacao','compromissos','encerrado'];
 const PHASE_LABELS = {
-  manual:'Manual', pre_qrs:'Check-in', indicadores:'Indicadores', submissao:'Submissão', verdades:'Verdades Incômodas',
+  manual:'Manual', pre_qrs:'Check-in', indicadores:'Indicadores', submissao:'Submissão',
   votacao:'Votação', compromissos:'Compromissos', encerrado:'Encerrado'
 };
 const PHASE_CSS = {
-  manual:'fase-manual', pre_qrs:'fase-pre_qrs', indicadores:'fase-indicadores', submissao:'fase-submissao', verdades:'fase-verdades',
+  manual:'fase-manual', pre_qrs:'fase-pre_qrs', indicadores:'fase-indicadores', submissao:'fase-submissao',
   votacao:'fase-votacao', compromissos:'fase-compromissos', encerrado:'fase-encerrado'
 };
 
@@ -395,7 +383,7 @@ const db = firebase.database();
 // ╚══════════════════════════════════════════════════════════╝
 let S = {
   leader: null, evento: null, problemas: [], viewFase: null,
-  myPreQrs: null, myIndicadores: null, myVerdades: null,
+  myPreQrs: null, myIndicadores: null,
   myAvaliacoes: {}, myCompromisso: null,
 };
 
@@ -446,11 +434,6 @@ async function loadMyIndicadores() {
   S.myIndicadores = snap.exists() ? snap.val() : null;
 }
 
-async function loadMyVerdades() {
-  const snap = await db.ref(`verdades/${S.leader.id}`).get();
-  S.myVerdades = snap.exists() ? snap.val() : null;
-}
-
 async function loadMyAvaliacoes() {
   const snap = await db.ref('avaliacoes').get();
   S.myAvaliacoes = {};
@@ -469,12 +452,11 @@ async function loadAdminStats() {
   const f = S.evento.fase;
   const grid = $id('admin-stats-grid');
 
-  if (f === 'manual' || f === 'pre_qrs' || f === 'indicadores' || f === 'submissao' || f === 'verdades' || f === 'compromissos' || f === 'encerrado') {
-    const [pqSnap, indSnap, prSnap, vdSnap, avSnap, cmSnap] = await Promise.all([
+  if (f === 'manual' || f === 'pre_qrs' || f === 'indicadores' || f === 'submissao' || f === 'compromissos' || f === 'encerrado') {
+    const [pqSnap, indSnap, prSnap, avSnap, cmSnap] = await Promise.all([
       db.ref('pre_qrs').get(),
       db.ref('indicadores').get(),
       db.ref('problemas').get(),
-      db.ref('verdades').get(),
       db.ref('avaliacoes').get(),
       db.ref('compromissos').get(),
     ]);
@@ -485,12 +467,10 @@ async function loadAdminStats() {
       <div class="stat"><div class="stat-n">${pqSnap.exists()?pqSnap.numChildren():0}/10</div><div class="stat-l">Check-in enviados</div></div>
       <div class="stat"><div class="stat-n">${indSnap.exists()?indSnap.numChildren():0}/10</div><div class="stat-l">Indicadores enviados</div></div>
       <div class="stat"><div class="stat-n">${prSnap.exists()?prSnap.numChildren():0}</div><div class="stat-l">Problemas</div></div>
-      <div class="stat"><div class="stat-n">${vdSnap.exists()?vdSnap.numChildren():0}/10</div><div class="stat-l">Verdades enviadas</div></div>
       <div class="stat"><div class="stat-n">${avLeaders.size}/10</div><div class="stat-l">Avaliaram</div></div>
       <div class="stat"><div class="stat-n">${cmSnap.exists()?cmSnap.numChildren():0}/10</div><div class="stat-l">Compromissos</div></div>
     `;
-    // expand grid to 6 cols for encerrado/full view
-    grid.style.gridTemplateColumns = 'repeat(6,1fr)';
+    grid.style.gridTemplateColumns = 'repeat(5,1fr)';
   } else {
     const [avSnap, prSnap] = await Promise.all([db.ref('avaliacoes').get(), db.ref('problemas').get()]);
     const avLeaders = new Set();
@@ -518,13 +498,6 @@ async function saveIndicadores(inds) {
   inds.forEach((ind, i) => { payload[`ind${i+1}`] = ind || null; });
   await db.ref(`indicadores/${S.leader.id}`).set(payload);
   S.myIndicadores = payload;
-}
-
-async function saveVerdade(texto, anonimo) {
-  const payload = { texto, anonimo, submitted_at: Date.now() };
-  if (!anonimo) { payload.leader_name = S.leader.name; payload.setor = S.leader.setor; }
-  await db.ref(`verdades/${S.leader.id}`).set(payload);
-  S.myVerdades = payload;
 }
 
 async function saveAvaliacao(problemaId, impacto, urgencia, controle) {
@@ -590,7 +563,6 @@ const PHASE_DESC = {
   pre_qrs:      { emoji:'✍️', titulo:'Balanço do Trimestre', desc:'Responda 4 perguntas de reflexão antes da reunião. Seja honesto — suas respostas guiarão as discussões do dia.' },
   indicadores:  { emoji:'📈', titulo:'Indicadores', desc:'Compartilhe até 3 indicadores do seu setor neste trimestre, comparando com o último trimestre ou com o mesmo período do ano passado.' },
   submissao:    { emoji:'📋', titulo:'Submissão de Problemas e Conflitos', desc:'Cadastre os problemas e conflitos que você quer colocar em pauta. Descreva o impacto para que todos entendam a gravidade.' },
-  verdades:     { emoji:'💬', titulo:'Verdades Incômodas', desc:'Escreva o que ninguém está falando. Você pode assinar ou permanecer anônimo. Uma frase honesta vale mais do que um relatório bonito.' },
   votacao:      { emoji:'🎯', titulo:'Votação por Critérios', desc:'Avalie cada problema de 1 a 3 em três dimensões: Impacto, Urgência e Controle. O score é o produto das notas (máx. 27) e o sistema calcula o ranking automaticamente.' },
   compromissos: { emoji:'💚', titulo:'Compromissos Finais', desc:'O QRS Day não termina com diagnóstico — termina com decisão. Escreva o que você assume para os próximos 90 dias e o que pode ser cobrado de você.' },
   encerrado:    { emoji:'🏁', titulo:'QRS Day Encerrado', desc:'Confira o ranking final dos problemas e os compromissos assumidos pela liderança. Os resultados ficam salvos no histórico.' },
@@ -604,7 +576,6 @@ function myPhaseCompletion() {
     pre_qrs:      S.myPreQrs !== null,
     indicadores:  S.myIndicadores !== null,
     submissao:    cur > PHASES.indexOf('submissao'), // fase passou
-    verdades:     S.myVerdades !== null,
     votacao:      totalProbs > 0 && Object.keys(S.myAvaliacoes).length >= totalProbs,
     compromissos: S.myCompromisso !== null,
     encerrado:    true,
@@ -685,8 +656,6 @@ async function renderAdmin() {
     btns += `<button class="btn btn-outline" id="btn-view-preqrs">👁 Ver Pré-QRS</button>`;
   if (f === 'indicadores' || f === 'submissao' || f === 'encerrado')
     btns += `<button class="btn btn-outline" id="btn-view-ind">📈 Ver Indicadores</button>`;
-  if (f === 'verdades' || f === 'encerrado')
-    btns += `<button class="btn btn-outline" id="btn-view-verdades">👁 Ver Verdades</button>`;
   if (f === 'compromissos' || f === 'encerrado')
     btns += `<button class="btn btn-outline" id="btn-view-comp">👁 Ver Compromissos</button>`;
   if (f === 'votacao')
@@ -702,7 +671,6 @@ async function renderAdmin() {
   $id('btn-historico')?.addEventListener('click', adminViewHistorico);
   $id('btn-view-preqrs')?.addEventListener('click', adminViewPreQrs);
   $id('btn-view-ind')?.addEventListener('click', adminViewIndicadores);
-  $id('btn-view-verdades')?.addEventListener('click', adminViewVerdades);
   $id('btn-view-comp')?.addEventListener('click', adminViewCompromissos);
   $id('btn-admin-votar')?.addEventListener('click', () => { renderVotacao(); window.scrollTo({top:$id('content-area').offsetTop, behavior:'smooth'}); });
 
@@ -825,7 +793,6 @@ async function adminViewHistorico() {
           <button class="btn btn-outline btn-sm" data-hist-prob="${item.id}">📋 Ver Problemas</button>
           <button class="btn btn-outline btn-sm" data-hist-comp="${item.id}">💚 Ver Compromissos</button>
           <button class="btn btn-outline btn-sm" data-hist-pq="${item.id}">📝 Ver Pré-QRS</button>
-          <button class="btn btn-outline btn-sm" data-hist-vd="${item.id}">💬 Ver Verdades</button>
         </div>
       </div>`;
   }).join('');
@@ -905,17 +872,6 @@ async function adminViewHistorico() {
     $id('btn-back-hist').addEventListener('click', adminViewHistorico);
   }));
 
-  document.querySelectorAll('[data-hist-vd]').forEach(btn => btn.addEventListener('click', () => {
-    const item = itens.find(i => i.id === btn.dataset.histVd);
-    const vds = Object.values(item.verdades || {});
-    const rows = vds.map(v => `<div class="verdade-card">
-      <div class="verdade-text">${escHtml(v.texto)}</div>
-      <div class="verdade-meta">${v.anonimo ? '<span class="verdade-anon">🎭 Anônimo</span>' : `✍️ ${escHtml(v.leader_name)}`}</div>
-    </div>`).join('');
-    $id('modal-content').innerHTML = `<button class="btn btn-outline btn-sm" id="btn-back-hist" style="margin-bottom:16px">← Voltar</button>
-      <div class="modal-title">Verdades — ${escHtml((item.evento||{}).nome||'')}</div>${rows||'<div class="empty"><div class="empty-t">Sem verdades.</div></div>'}`;
-    $id('btn-back-hist').addEventListener('click', adminViewHistorico);
-  }));
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -1018,7 +974,6 @@ const MANUAL_STEPS = [
   { emoji:'📈', titulo:'Indicadores', texto:'Compartilhe até 3 indicadores do seu setor, comparando o valor atual com o último trimestre ou com o mesmo período do ano passado. Escolha números que mostrem a real direção do setor, para o bem ou para o mal.' },
   { emoji:'✍️', titulo:'Balanço do Trimestre', texto:'Responda com honestidade: o que você prometeu, o que entregou, o que não entregou (e por quê) e o que pretende entregar no próximo trimestre.' },
   { emoji:'📋', titulo:'Submissão — Problemas e Conflitos', texto:'Cadastre os temas que precisam ser discutidos na reunião. Se for um Problema, descreva contexto, impacto e custo. Se for um Conflito entre pessoas, áreas ou processos, registre a Tensão, o Impacto, o Acordo proposto e quem é o Dono desse acordo.' },
-  { emoji:'💬', titulo:'Verdades Incômodas', texto:'Escreva o que ninguém está falando abertamente. Pode ser anônimo ou assinado — o importante é colocar na mesa o que está sendo evitado.' },
   { emoji:'🎯', titulo:'Votação', texto:'Avalie cada problema/conflito de 1 a 3 em três critérios: Impacto, Urgência e Controle. O score final é o produto das três notas (Impacto × Urgência × Controle, máximo 27) — isso prioriza o que é grave, urgente e está ao nosso alcance.' },
   { emoji:'💚', titulo:'Compromissos', texto:'Para fechar: o que você vai Começar/Continuar fazendo (compromissos e comportamentos), o que vai Cessar/Reduzir, e qual decisão você precisa que a liderança tome para conseguir entregar.' },
 ];
@@ -1313,84 +1268,6 @@ function renderAllProblems() {
       </div>
       <div class="my-card-actions"><button class="btn btn-outline btn-sm" data-view="${p.id}">Ver</button></div>
     </div>`).join('');
-}
-
-// ╔══════════════════════════════════════════════════════════╗
-//  RENDER — VERDADES INCÔMODAS
-// ╚══════════════════════════════════════════════════════════╝
-async function renderVerdades() {
-  hide('sticky-bar');
-  const allSnap = await db.ref('verdades').get();
-  const total = allSnap.exists() ? allSnap.numChildren() : 0;
-  const allVerdades = [];
-  if (allSnap.exists()) allSnap.forEach(c => allVerdades.push(c.val()));
-
-  let html = `${phaseProgress()}
-    <div class="sec-title">Verdades Incômodas</div>
-    <div class="sec-sub">"O que estamos fingindo que não é um problema?"</div>
-    <div class="info-box red"><strong>Escreva sem filtro.</strong> Este é o espaço para colocar na mesa o que ninguém está falando. Você pode assinar ou permanecer anônimo.</div>`;
-
-  if (S.myVerdades) {
-    html += `<div class="comp-done-card">
-      <span style="font-size:26px">✅</span>
-      <div><strong style="font-size:14px;color:var(--g)">Sua verdade foi registrada</strong><br>
-      <span style="font-size:13px;color:var(--muted)">${S.myVerdades.anonimo ? 'Enviada anonimamente' : `Assinada como ${escHtml(S.myVerdades.leader_name)}`}</span></div>
-    </div>
-    <button class="btn btn-outline btn-sm" id="btn-edit-verdade">✏️ Editar</button>
-    <div style="margin-top:28px"></div>`;
-  } else {
-    let anon = true;
-    html += `<div class="form-block">
-      <div class="form-block-title">Sua contribuição</div>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Escreva de 1 a 3 verdades incômodas sobre a empresa. Seja direto.</p>
-      <div class="toggle-group" id="toggle-anon">
-        <button class="toggle-btn active" data-anon="true">🎭 Anônimo</button>
-        <button class="toggle-btn" data-anon="false">✍️ Com meu nome</button>
-      </div>
-      <div class="field">
-        <textarea id="inp-verdade" rows="4" placeholder="Ex: Estamos aceitando retrabalho como se fosse normal.\nTemos processos que só funcionam porque uma pessoa específica segura."></textarea>
-      </div>
-      <button class="btn btn-primary" id="btn-save-verdade">Enviar</button>
-    </div>`;
-  }
-
-  html += `<div style="margin-top:8px"><div class="verdades-counter">
-    <strong>${total}</strong>verdade${total!==1?'s':''} registrada${total!==1?'s':''} até agora
-  </div>`;
-
-  if (S.myVerdades) {
-    html += allVerdades.map(v => `
-      <div class="verdade-card">
-        <div class="verdade-text">${escHtml(v.texto)}</div>
-        <div class="verdade-meta">${v.anonimo
-          ? '<span class="verdade-anon">🎭 Anônimo</span>'
-          : `✍️ ${escHtml(v.leader_name)} · ${escHtml(v.setor)}`}
-          · ${fmtDate(v.submitted_at)}
-        </div>
-      </div>`).join('');
-  } else {
-    html += `<div class="info-box blue" style="text-align:center">Envie sua verdade para ver as contribuições dos demais líderes.</div>`;
-  }
-  html += `</div>`;
-
-  $id('content-area').innerHTML = html;
-
-  let anonimo = true;
-  $id('toggle-anon')?.querySelectorAll('.toggle-btn').forEach(btn => btn.addEventListener('click', () => {
-    $id('toggle-anon').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    anonimo = btn.dataset.anon === 'true';
-  }));
-
-  $id('btn-save-verdade')?.addEventListener('click', async () => {
-    const texto = $id('inp-verdade')?.value.trim();
-    if (!texto) { toast('Escreva pelo menos uma verdade.', 'err'); return; }
-    const btn = $id('btn-save-verdade'); btn.disabled=true; btn.textContent='Salvando…';
-    try { await saveVerdade(texto, anonimo); toast('Verdade registrada!', 'ok'); await renderVerdades(); }
-    catch(e) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Enviar'; }
-  });
-
-  $id('btn-edit-verdade')?.addEventListener('click', () => { S.myVerdades = null; renderVerdades(); });
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -1764,24 +1641,6 @@ async function adminViewIndicadores() {
   });
 }
 
-async function adminViewVerdades() {
-  const snap = await db.ref('verdades').get();
-  if (!snap.exists()) { toast('Nenhuma verdade ainda.', 'info'); return; }
-  let html = `<div class="modal-title">Verdades Incômodas</div>`;
-  snap.forEach(child => {
-    const v = child.val();
-    html += `<div class="verdade-card">
-      <div class="verdade-text">${escHtml(v.texto)}</div>
-      <div class="verdade-meta">${v.anonimo
-        ? '<span class="verdade-anon">🎭 Anônimo</span>'
-        : `✍️ ${escHtml(v.leader_name)} · ${escHtml(v.setor)}`}
-        · ${fmtDate(v.submitted_at)}</div>
-    </div>`;
-  });
-  $id('modal-content').innerHTML = html;
-  show('modal');
-}
-
 async function adminViewCompromissos() {
   const snap = await db.ref('compromissos').get();
   if (!snap.exists()) { toast('Nenhum compromisso ainda.', 'info'); return; }
@@ -1873,20 +1732,6 @@ async function downloadExcel() {
     const ws2 = XLSX.utils.aoa_to_sheet([hPq,...rPq]);
     ws2['!cols'] = [{wch:20},{wch:22},{wch:45},{wch:45},{wch:45},{wch:45}];
     XLSX.utils.book_append_sheet(wb, ws2, 'Balanço do Trimestre');
-  }
-
-  // Aba: Verdades
-  const vdSnap = await db.ref('verdades').get();
-  if (vdSnap.exists()) {
-    const hVd = ['Texto','Tipo','Líder','Setor','Data'];
-    const rVd = [];
-    vdSnap.forEach(c => {
-      const v = c.val();
-      rVd.push([v.texto, v.anonimo?'Anônimo':'Nominal', v.anonimo?'—':(v.leader_name||'—'), v.anonimo?'—':(v.setor||'—'), fmtDate(v.submitted_at)]);
-    });
-    const ws3 = XLSX.utils.aoa_to_sheet([hVd,...rVd]);
-    ws3['!cols'] = [{wch:60},{wch:12},{wch:20},{wch:22},{wch:14}];
-    XLSX.utils.book_append_sheet(wb, ws3, 'Verdades Incômodas');
   }
 
   // Aba: Compromissos
@@ -2014,7 +1859,6 @@ async function renderPhaseContent(f) {
   else if (f === 'pre_qrs')       renderPreQrs();
   else if (f === 'indicadores')   renderIndicadores();
   else if (f === 'submissao')     renderSubmissao();
-  else if (f === 'verdades')      await renderVerdades();
   else if (f === 'votacao')       renderVotacao();
   else if (f === 'compromissos')  await renderCompromissos();
   else if (f === 'encerrado')     await renderEncerrado();
@@ -2028,7 +1872,7 @@ async function navigateToPhase(f) {
 
 async function refresh() {
   await loadEvento(); await loadProblemas();
-  await loadMyPreQrs(); await loadMyIndicadores(); await loadMyVerdades();
+  await loadMyPreQrs(); await loadMyIndicadores();
   await loadMyAvaliacoes(); await loadMyCompromisso();
   renderHeader(); await renderAdmin();
   S.viewFase = S.evento.fase;
@@ -2072,7 +1916,7 @@ $id('btn-enter').addEventListener('click', async () => {
 });
 
 $id('btn-logout').addEventListener('click', () => {
-  S = { leader:null, evento:null, problemas:[], viewFase:null, myPreQrs:null, myIndicadores:null, myVerdades:null, myAvaliacoes:{}, myCompromisso:null };
+  S = { leader:null, evento:null, problemas:[], viewFase:null, myPreQrs:null, myIndicadores:null, myAvaliacoes:{}, myCompromisso:null };
   localStorage.removeItem('ecg_leader');
   hide('view-app'); show('view-login');
 });
