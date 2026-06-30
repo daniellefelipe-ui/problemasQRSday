@@ -61,6 +61,7 @@
 
     /* ── Phase badge ─────────────────────────────────────── */
     .fase-badge{padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-family:'Montserrat',sans-serif}
+    .fase-manual{background:#F1F5F9;color:#334155}
     .fase-pre_qrs{background:#F0E6FF;color:#6B21A8}
     .fase-indicadores{background:#E6FFFA;color:#0F766E}
     .fase-submissao{background:var(--al);color:#8B6914}
@@ -354,13 +355,13 @@ const LEADERS = [
 
 const SETORES = [...new Set(LEADERS.map(l => l.setor))];
 
-const PHASES = ['pre_qrs','indicadores','submissao','verdades','votacao','compromissos','encerrado'];
+const PHASES = ['manual','indicadores','pre_qrs','submissao','verdades','votacao','compromissos','encerrado'];
 const PHASE_LABELS = {
-  pre_qrs:'Check-in', indicadores:'Indicadores', submissao:'Submissão', verdades:'Verdades Incômodas',
+  manual:'Manual', pre_qrs:'Check-in', indicadores:'Indicadores', submissao:'Submissão', verdades:'Verdades Incômodas',
   votacao:'Votação', compromissos:'Compromissos', encerrado:'Encerrado'
 };
 const PHASE_CSS = {
-  pre_qrs:'fase-pre_qrs', indicadores:'fase-indicadores', submissao:'fase-submissao', verdades:'fase-verdades',
+  manual:'fase-manual', pre_qrs:'fase-pre_qrs', indicadores:'fase-indicadores', submissao:'fase-submissao', verdades:'fase-verdades',
   votacao:'fase-votacao', compromissos:'fase-compromissos', encerrado:'fase-encerrado'
 };
 
@@ -417,7 +418,7 @@ const phaseCss   = f => PHASE_CSS[f] || '';
 async function loadEvento() {
   const snap = await db.ref('evento').get();
   if (!snap.exists()) {
-    const novo = { nome:'QRS Day · ' + new Date().toLocaleDateString('pt-BR',{month:'2-digit',year:'numeric'}), fase:'pre_qrs' };
+    const novo = { nome:'QRS Day · ' + new Date().toLocaleDateString('pt-BR',{month:'2-digit',year:'numeric'}), fase:'manual' };
     await db.ref('evento').set(novo); S.evento = novo;
   } else S.evento = snap.val();
 }
@@ -464,7 +465,7 @@ async function loadAdminStats() {
   const f = S.evento.fase;
   const grid = $id('admin-stats-grid');
 
-  if (f === 'pre_qrs' || f === 'indicadores' || f === 'submissao' || f === 'verdades' || f === 'compromissos' || f === 'encerrado') {
+  if (f === 'manual' || f === 'pre_qrs' || f === 'indicadores' || f === 'submissao' || f === 'verdades' || f === 'compromissos' || f === 'encerrado') {
     const [pqSnap, indSnap, prSnap, vdSnap, avSnap, cmSnap] = await Promise.all([
       db.ref('pre_qrs').get(),
       db.ref('indicadores').get(),
@@ -581,6 +582,7 @@ function renderHeader() {
 }
 
 const PHASE_DESC = {
+  manual:       { emoji:'📖', titulo:'Manual do QRS Day', desc:'Antes de começar, entenda o que será preenchido em cada etapa da reunião.' },
   pre_qrs:      { emoji:'✍️', titulo:'Balanço do Trimestre', desc:'Responda 4 perguntas de reflexão antes da reunião. Seja honesto — suas respostas guiarão as discussões do dia.' },
   indicadores:  { emoji:'📈', titulo:'Indicadores', desc:'Compartilhe até 3 indicadores do seu setor neste trimestre, comparando com o último trimestre ou com o mesmo período do ano passado.' },
   submissao:    { emoji:'📋', titulo:'Submissão de Problemas e Conflitos', desc:'Cadastre os problemas e conflitos que você quer colocar em pauta. Descreva o impacto para que todos entendam a gravidade.' },
@@ -594,6 +596,7 @@ function myPhaseCompletion() {
   const cur = PHASES.indexOf(S.evento.fase);
   const totalProbs = S.problemas.length;
   return {
+    manual:       true,
     pre_qrs:      S.myPreQrs !== null,
     indicadores:  S.myIndicadores !== null,
     submissao:    cur > PHASES.indexOf('submissao'), // fase passou
@@ -760,7 +763,7 @@ async function novoQrsDay() {
 
     // Cria novo evento
     const novoNome = 'QRS Day · ' + new Date().toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' });
-    await db.ref('evento').set({ nome: novoNome, fase: 'pre_qrs' });
+    await db.ref('evento').set({ nome: novoNome, fase: 'manual' });
 
     toast('Novo QRS Day iniciado!', 'ok');
     await refresh();
@@ -981,6 +984,34 @@ function renderCheckinInTab() {
       catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Enviar respostas'; }
     });
   }
+}
+
+// ╔══════════════════════════════════════════════════════════╗
+//  RENDER — MANUAL
+// ╚══════════════════════════════════════════════════════════╝
+const MANUAL_STEPS = [
+  { emoji:'📈', titulo:'Indicadores', texto:'Compartilhe até 3 indicadores do seu setor, comparando o valor atual com o último trimestre ou com o mesmo período do ano passado. Escolha números que mostrem a real direção do setor, para o bem ou para o mal.' },
+  { emoji:'✍️', titulo:'Balanço do Trimestre', texto:'Responda com honestidade: o que você prometeu, o que entregou, o que não entregou (e por quê) e o que pretende entregar no próximo trimestre.' },
+  { emoji:'📋', titulo:'Submissão — Problemas e Conflitos', texto:'Cadastre os temas que precisam ser discutidos na reunião. Se for um Problema, descreva contexto, impacto e custo. Se for um Conflito entre pessoas, áreas ou processos, registre a Tensão, o Impacto, o Acordo proposto e quem é o Dono desse acordo.' },
+  { emoji:'💬', titulo:'Verdades Incômodas', texto:'Escreva o que ninguém está falando abertamente. Pode ser anônimo ou assinado — o importante é colocar na mesa o que está sendo evitado.' },
+  { emoji:'🎯', titulo:'Votação', texto:'Avalie cada problema/conflito de 1 a 3 em três critérios: Impacto, Urgência e Controle. O score final é o produto das três notas (Impacto × Urgência × Controle, máximo 27) — isso prioriza o que é grave, urgente e está ao nosso alcance.' },
+  { emoji:'💚', titulo:'Compromissos', texto:'Para fechar: o que você vai Começar/Continuar fazendo (compromissos e comportamentos), o que vai Cessar/Reduzir, e qual decisão você precisa que a liderança tome para conseguir entregar.' },
+];
+
+function renderManual() {
+  hide('sticky-bar');
+  const steps = MANUAL_STEPS.map((s,i) => `
+    <div class="ind-card">
+      <div class="ind-card-title">${s.emoji} ${i+1}. ${escHtml(s.titulo)}</div>
+      <div style="font-size:14px;line-height:1.6;color:var(--text)">${escHtml(s.texto)}</div>
+    </div>`).join('');
+
+  $id('content-area').innerHTML = `
+    ${phaseProgress()}
+    <div class="sec-title">Manual do QRS Day</div>
+    <div class="sec-sub">Antes de começar, veja o que será preenchido em cada etapa da reunião.</div>
+    <div class="info-box blue"><strong>Como funciona:</strong> a reunião acontece em etapas. O admin avança a fase para todos quando o grupo estiver pronto, mas você pode ler este manual a qualquer momento.</div>
+    ${steps}`;
 }
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -1959,7 +1990,8 @@ async function refresh() {
   await loadMyAvaliacoes(); await loadMyCompromisso();
   renderHeader(); await renderAdmin();
   const f = S.evento.fase;
-  if      (f === 'pre_qrs')       renderPreQrs();
+  if      (f === 'manual')        renderManual();
+  else if (f === 'pre_qrs')       renderPreQrs();
   else if (f === 'indicadores')   renderIndicadores();
   else if (f === 'submissao')     renderSubmissao();
   else if (f === 'verdades')      await renderVerdades();
