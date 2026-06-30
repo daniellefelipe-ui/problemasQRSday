@@ -678,7 +678,7 @@ async function renderAdmin() {
   $id('btn-view-comp')?.addEventListener('click', adminViewCompromissos);
   $id('btn-admin-votar')?.addEventListener('click', () => { renderVotacao(); window.scrollTo({top:$id('content-area').offsetTop, behavior:'smooth'}); });
 
-  if (f === 'votacao') await renderVotacaoRanking(); else hide('admin-ranking-panel');
+  if (f === 'votacao') await renderVotacaoRanking(); else if ($id('admin-ranking-panel')) hide('admin-ranking-panel');
 }
 
 async function renderVotacaoRanking() {
