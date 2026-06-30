@@ -10,6 +10,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     :root{
@@ -61,6 +62,7 @@
     /* ── Phase badge ─────────────────────────────────────── */
     .fase-badge{padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-family:'Montserrat',sans-serif}
     .fase-pre_qrs{background:#F0E6FF;color:#6B21A8}
+    .fase-indicadores{background:#E6FFFA;color:#0F766E}
     .fase-submissao{background:var(--al);color:#8B6914}
     .fase-verdades{background:#FFF0F0;color:#9B2335}
     .fase-votacao{background:#EBF8FF;color:#2B6CB0}
@@ -99,6 +101,27 @@
     .preqrs-done-card{background:var(--gl);border:1.5px solid #9AE6B4;border-radius:var(--r);padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:12px}
     .preqrs-done-icon{font-size:28px}
     .preqrs-done-text{font-size:14px;color:var(--g);font-weight:500}
+
+    /* ── Indicadores ─────────────────────────────────────── */
+    .ind-card{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:22px 26px;margin-bottom:14px}
+    .ind-card-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#0F766E;margin-bottom:14px}
+    .ind-tip{background:#E6FFFA;border:1px solid #99F6E4;border-radius:8px;padding:11px 14px;font-size:13px;color:#0F766E;margin-bottom:16px;line-height:1.55}
+    .ind-row{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px}
+    .ind-row2{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:12px;margin-top:4px}
+    .ind-display{background:var(--bg);border-radius:8px;padding:16px 18px;margin-bottom:10px}
+    .ind-display-name{font-size:14px;font-weight:700;margin-bottom:6px}
+    .ind-display-vals{display:flex;gap:18px;font-size:13px;color:var(--muted)}
+    .ind-display-vals strong{color:var(--text);font-size:16px;font-family:'Montserrat',sans-serif}
+    .ind-trend{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;margin-left:6px}
+    .ind-trend.melhorou{background:var(--gl);color:var(--g)}
+    .ind-trend.piorou{background:var(--redl);color:var(--red)}
+    .ind-trend.estavel{background:var(--pl);color:var(--p)}
+    canvas.ind-chart{max-height:90px}
+
+    /* ── Conflito ────────────────────────────────────────── */
+    .conflito-card{border-left:4px solid #B45309!important}
+    .chip-conflito{background:#FEF3C7;color:#B45309}
+    .chip-problema{background:var(--al);color:#8B6914}
 
     /* ── Admin responses list ────────────────────────────── */
     .resp-card{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px;margin-bottom:12px}
@@ -331,24 +354,29 @@ const LEADERS = [
 
 const SETORES = [...new Set(LEADERS.map(l => l.setor))];
 
-const PHASES = ['pre_qrs','submissao','verdades','votacao','compromissos','encerrado'];
+const PHASES = ['pre_qrs','indicadores','submissao','verdades','votacao','compromissos','encerrado'];
 const PHASE_LABELS = {
-  pre_qrs:'Check-in', submissao:'Submissão', verdades:'Verdades Incômodas',
+  pre_qrs:'Check-in', indicadores:'Indicadores', submissao:'Submissão', verdades:'Verdades Incômodas',
   votacao:'Votação', compromissos:'Compromissos', encerrado:'Encerrado'
 };
 const PHASE_CSS = {
-  pre_qrs:'fase-pre_qrs', submissao:'fase-submissao', verdades:'fase-verdades',
+  pre_qrs:'fase-pre_qrs', indicadores:'fase-indicadores', submissao:'fase-submissao', verdades:'fase-verdades',
   votacao:'fase-votacao', compromissos:'fase-compromissos', encerrado:'fase-encerrado'
 };
 
 const PRE_QRS_QUESTIONS = [
   { key:'q1', label:'O que eu prometi no trimestre?' },
   { key:'q2', label:'O que eu entreguei?' },
-  { key:'q3', label:'O que não entreguei e por quê?' },
-  { key:'q4', label:'Qual problema eu estou evitando falar?' },
-  { key:'q5', label:'Qual decisão eu preciso que a liderança tome?' },
-  { key:'q6', label:'O que eu acho que a empresa precisa parar de fazer?' },
-  { key:'q7', label:'Qual métrica mais me preocupa hoje?' },
+  { key:'q3', label:'O que eu não entreguei e por quê?' },
+  { key:'q4', label:'O que eu pretendo entregar?' },
+];
+
+const IND_UNIDADES = ['R$','%','un.','dias','horas','clientes','NPS','outro'];
+const IND_BASES = ['Último trimestre','Mesmo período do ano passado'];
+const IND_TIPS = [
+  'Escolha a métrica que melhor representa o resultado do seu setor neste trimestre. Se ela piorou, o grupo precisa saber.',
+  'Um bom indicador responde: "Estamos indo na direção certa?" — prefira números que você controla diretamente.',
+  'Se o número piorou, isso também é uma informação valiosa. Compartilhar o problema é o primeiro passo para resolver.',
 ];
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -362,7 +390,7 @@ const db = firebase.database();
 // ╚══════════════════════════════════════════════════════════╝
 let S = {
   leader: null, evento: null, problemas: [],
-  myPreQrs: null, myVerdades: null,
+  myPreQrs: null, myIndicadores: null, myVerdades: null,
   myAvaliacoes: {}, myCompromisso: null,
 };
 
@@ -408,6 +436,11 @@ async function loadMyPreQrs() {
   S.myPreQrs = snap.exists() ? snap.val() : null;
 }
 
+async function loadMyIndicadores() {
+  const snap = await db.ref(`indicadores/${S.leader.id}`).get();
+  S.myIndicadores = snap.exists() ? snap.val() : null;
+}
+
 async function loadMyVerdades() {
   const snap = await db.ref(`verdades/${S.leader.id}`).get();
   S.myVerdades = snap.exists() ? snap.val() : null;
@@ -431,9 +464,10 @@ async function loadAdminStats() {
   const f = S.evento.fase;
   const grid = $id('admin-stats-grid');
 
-  if (f === 'pre_qrs' || f === 'submissao' || f === 'verdades' || f === 'compromissos' || f === 'encerrado') {
-    const [pqSnap, prSnap, vdSnap, avSnap, cmSnap] = await Promise.all([
+  if (f === 'pre_qrs' || f === 'indicadores' || f === 'submissao' || f === 'verdades' || f === 'compromissos' || f === 'encerrado') {
+    const [pqSnap, indSnap, prSnap, vdSnap, avSnap, cmSnap] = await Promise.all([
       db.ref('pre_qrs').get(),
+      db.ref('indicadores').get(),
       db.ref('problemas').get(),
       db.ref('verdades').get(),
       db.ref('avaliacoes').get(),
@@ -443,14 +477,15 @@ async function loadAdminStats() {
     if (avSnap.exists()) avSnap.forEach(c => avLeaders.add(c.val().leader_id));
 
     grid.innerHTML = `
-      <div class="stat"><div class="stat-n">${pqSnap.exists()?pqSnap.numChildren():0}/10</div><div class="stat-l">Pré-QRS enviados</div></div>
+      <div class="stat"><div class="stat-n">${pqSnap.exists()?pqSnap.numChildren():0}/10</div><div class="stat-l">Check-in enviados</div></div>
+      <div class="stat"><div class="stat-n">${indSnap.exists()?indSnap.numChildren():0}/10</div><div class="stat-l">Indicadores enviados</div></div>
       <div class="stat"><div class="stat-n">${prSnap.exists()?prSnap.numChildren():0}</div><div class="stat-l">Problemas</div></div>
       <div class="stat"><div class="stat-n">${vdSnap.exists()?vdSnap.numChildren():0}/10</div><div class="stat-l">Verdades enviadas</div></div>
       <div class="stat"><div class="stat-n">${avLeaders.size}/10</div><div class="stat-l">Avaliaram</div></div>
       <div class="stat"><div class="stat-n">${cmSnap.exists()?cmSnap.numChildren():0}/10</div><div class="stat-l">Compromissos</div></div>
     `;
-    // expand grid to 5 cols for encerrado/full view
-    grid.style.gridTemplateColumns = 'repeat(5,1fr)';
+    // expand grid to 6 cols for encerrado/full view
+    grid.style.gridTemplateColumns = 'repeat(6,1fr)';
   } else {
     const [avSnap, prSnap] = await Promise.all([db.ref('avaliacoes').get(), db.ref('problemas').get()]);
     const avLeaders = new Set();
@@ -473,6 +508,13 @@ async function savePreQrs(data) {
   S.myPreQrs = payload;
 }
 
+async function saveIndicadores(inds) {
+  const payload = { leader_name: S.leader.name, setor: S.leader.setor, submitted_at: Date.now() };
+  inds.forEach((ind, i) => { payload[`ind${i+1}`] = ind || null; });
+  await db.ref(`indicadores/${S.leader.id}`).set(payload);
+  S.myIndicadores = payload;
+}
+
 async function saveVerdade(texto, anonimo) {
   const payload = { texto, anonimo, submitted_at: Date.now() };
   if (!anonimo) { payload.leader_name = S.leader.name; payload.setor = S.leader.setor; }
@@ -482,7 +524,7 @@ async function saveVerdade(texto, anonimo) {
 
 async function saveAvaliacao(problemaId, impacto, urgencia, controle) {
   const key = `${S.leader.id}_${problemaId}`;
-  const data = { leader_id: S.leader.id, problema_id: problemaId, impacto, urgencia, controle, score: impacto+urgencia+controle, created_at: Date.now() };
+  const data = { leader_id: S.leader.id, problema_id: problemaId, impacto, urgencia, controle, score: impacto*urgencia*controle, created_at: Date.now() };
   await db.ref(`avaliacoes/${key}`).set(data);
   S.myAvaliacoes[problemaId] = data;
 }
@@ -504,10 +546,10 @@ async function deleteProblem(id) {
   }
 }
 
-async function saveCompromisso(c90, cobranca) {
-  const data = { c90, cobranca, leader_name: S.leader.name, setor: S.leader.setor, submitted_at: Date.now() };
-  await db.ref(`compromissos/${S.leader.id}`).set(data);
-  S.myCompromisso = data;
+async function saveCompromisso(data) {
+  const payload = { ...data, leader_name: S.leader.name, setor: S.leader.setor, submitted_at: Date.now() };
+  await db.ref(`compromissos/${S.leader.id}`).set(payload);
+  S.myCompromisso = payload;
 }
 
 async function updateFase(fase) {
@@ -539,10 +581,11 @@ function renderHeader() {
 }
 
 const PHASE_DESC = {
-  pre_qrs:      { emoji:'✍️', titulo:'Check-in Individual', desc:'Responda 7 perguntas de reflexão antes da reunião. Seja honesto — suas respostas guiarão as discussões do dia.' },
-  submissao:    { emoji:'📋', titulo:'Submissão de Problemas', desc:'Cadastre os problemas que você quer colocar em pauta. Descreva o impacto e os custos para que todos entendam a gravidade.' },
+  pre_qrs:      { emoji:'✍️', titulo:'Balanço do Trimestre', desc:'Responda 4 perguntas de reflexão antes da reunião. Seja honesto — suas respostas guiarão as discussões do dia.' },
+  indicadores:  { emoji:'📈', titulo:'Indicadores', desc:'Compartilhe até 3 indicadores do seu setor neste trimestre, comparando com o último trimestre ou com o mesmo período do ano passado.' },
+  submissao:    { emoji:'📋', titulo:'Submissão de Problemas e Conflitos', desc:'Cadastre os problemas e conflitos que você quer colocar em pauta. Descreva o impacto para que todos entendam a gravidade.' },
   verdades:     { emoji:'💬', titulo:'Verdades Incômodas', desc:'Escreva o que ninguém está falando. Você pode assinar ou permanecer anônimo. Uma frase honesta vale mais do que um relatório bonito.' },
-  votacao:      { emoji:'🎯', titulo:'Votação por Critérios', desc:'Avalie cada problema em três dimensões: Impacto no negócio, Urgência e Controle da liderança. O sistema calcula o ranking automaticamente.' },
+  votacao:      { emoji:'🎯', titulo:'Votação por Critérios', desc:'Avalie cada problema de 1 a 3 em três dimensões: Impacto, Urgência e Controle. O score é o produto das notas (máx. 27) e o sistema calcula o ranking automaticamente.' },
   compromissos: { emoji:'💚', titulo:'Compromissos Finais', desc:'O QRS Day não termina com diagnóstico — termina com decisão. Escreva o que você assume para os próximos 90 dias e o que pode ser cobrado de você.' },
   encerrado:    { emoji:'🏁', titulo:'QRS Day Encerrado', desc:'Confira o ranking final dos problemas e os compromissos assumidos pela liderança. Os resultados ficam salvos no histórico.' },
 };
@@ -552,6 +595,7 @@ function myPhaseCompletion() {
   const totalProbs = S.problemas.length;
   return {
     pre_qrs:      S.myPreQrs !== null,
+    indicadores:  S.myIndicadores !== null,
     submissao:    cur > PHASES.indexOf('submissao'), // fase passou
     verdades:     S.myVerdades !== null,
     votacao:      totalProbs > 0 && Object.keys(S.myAvaliacoes).length >= totalProbs,
@@ -611,10 +655,14 @@ async function renderAdmin() {
   btns += `<button class="btn btn-outline" id="btn-historico">🗂 Histórico</button>`;
   if (f === 'pre_qrs' || f === 'submissao' || f === 'encerrado')
     btns += `<button class="btn btn-outline" id="btn-view-preqrs">👁 Ver Pré-QRS</button>`;
+  if (f === 'indicadores' || f === 'submissao' || f === 'encerrado')
+    btns += `<button class="btn btn-outline" id="btn-view-ind">📈 Ver Indicadores</button>`;
   if (f === 'verdades' || f === 'encerrado')
     btns += `<button class="btn btn-outline" id="btn-view-verdades">👁 Ver Verdades</button>`;
   if (f === 'compromissos' || f === 'encerrado')
     btns += `<button class="btn btn-outline" id="btn-view-comp">👁 Ver Compromissos</button>`;
+  if (f === 'votacao')
+    btns += `<button class="btn btn-primary" id="btn-admin-votar">🗳 Votar agora</button>`;
 
   $id('admin-actions').innerHTML = btns;
 
@@ -625,8 +673,39 @@ async function renderAdmin() {
   $id('btn-excel')?.addEventListener('click', downloadExcel);
   $id('btn-historico')?.addEventListener('click', adminViewHistorico);
   $id('btn-view-preqrs')?.addEventListener('click', adminViewPreQrs);
+  $id('btn-view-ind')?.addEventListener('click', adminViewIndicadores);
   $id('btn-view-verdades')?.addEventListener('click', adminViewVerdades);
   $id('btn-view-comp')?.addEventListener('click', adminViewCompromissos);
+  $id('btn-admin-votar')?.addEventListener('click', () => { renderVotacao(); window.scrollTo({top:$id('content-area').offsetTop, behavior:'smooth'}); });
+
+  if (f === 'votacao') await renderVotacaoRanking(); else hide('admin-ranking-panel');
+}
+
+async function renderVotacaoRanking() {
+  let panel = $id('admin-ranking-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'admin-ranking-panel';
+    $id('admin-panel').appendChild(panel);
+  }
+  show('admin-ranking-panel');
+  const scores = await getScores();
+  const ranked = [...S.problemas].sort((a,b) => (scores[b.id]?.total||0) - (scores[a.id]?.total||0));
+  const maxScore = scores[ranked[0]?.id]?.total || 1;
+  panel.innerHTML = `
+    <div class="sec-title" style="margin-top:18px">🏆 Ranking ao vivo</div>
+    ${ranked.map((p,i) => {
+      const s = scores[p.id] || { total:0, count:0 };
+      return `<div class="res-card${i===0?' res-rank-1':''}" style="margin-bottom:8px">
+        <div class="rank">${i===0?'🥇':`#${i+1}`}</div>
+        <div class="res-info">
+          <div class="res-title">${escHtml(p.titulo)}</div>
+          <div class="res-meta">${tipoChip(p)} <span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · ${s.count} avaliações</div>
+          <div class="progress"><div class="progress-fill" style="width:${Math.round((s.total/maxScore)*100)}%"></div></div>
+        </div>
+        <div class="res-score"><strong>${s.total}</strong><small>pontos</small></div>
+      </div>`;
+    }).join('') || '<div class="sec-sub">Nenhum problema cadastrado.</div>'}`;
 }
 
 async function changePhase(fase) {
@@ -642,10 +721,11 @@ async function novoQrsDay() {
 
   try {
     // Lê todos os dados atuais
-    const [evSnap, prSnap, pqSnap, vdSnap, avSnap, cmSnap, vtSnap] = await Promise.all([
+    const [evSnap, prSnap, pqSnap, indSnap, vdSnap, avSnap, cmSnap, vtSnap] = await Promise.all([
       db.ref('evento').get(),
       db.ref('problemas').get(),
       db.ref('pre_qrs').get(),
+      db.ref('indicadores').get(),
       db.ref('verdades').get(),
       db.ref('avaliacoes').get(),
       db.ref('compromissos').get(),
@@ -658,6 +738,7 @@ async function novoQrsDay() {
       evento:       evSnap.exists()  ? evSnap.val()                       : {},
       problemas:    prSnap.exists()  ? prSnap.val()                       : {},
       pre_qrs:      pqSnap.exists()  ? pqSnap.val()                       : {},
+      indicadores:  indSnap.exists() ? indSnap.val()                      : {},
       verdades:     vdSnap.exists()  ? vdSnap.val()                       : {},
       avaliacoes:   avSnap.exists()  ? avSnap.val()                       : {},
       compromissos: cmSnap.exists()  ? cmSnap.val()                       : {},
@@ -670,6 +751,7 @@ async function novoQrsDay() {
     await Promise.all([
       db.ref('problemas').remove(),
       db.ref('pre_qrs').remove(),
+      db.ref('indicadores').remove(),
       db.ref('verdades').remove(),
       db.ref('avaliacoes').remove(),
       db.ref('compromissos').remove(),
@@ -767,8 +849,13 @@ async function adminViewHistorico() {
         <div class="num-badge" style="background:var(--gl);color:var(--g)">✓</div>
         <div><div class="comp-card-name">${escHtml(c.leader_name)}</div><div class="comp-card-setor">${escHtml(c.setor)}</div></div>
       </div>
+      ${c.compromissos_assumidos!==undefined ? `
+      <div class="comp-item"><div class="comp-item-label">Começar/Continuar — Compromissos assumidos</div><div class="comp-item-value">${escHtml(c.compromissos_assumidos)}</div></div>
+      <div class="comp-item"><div class="comp-item-label">Começar/Continuar — Comportamentos positivos</div><div class="comp-item-value">${escHtml(c.comportamentos_positivos)}</div></div>
+      <div class="comp-item"><div class="comp-item-label">Cessar/Reduzir</div><div class="comp-item-value">${escHtml(c.cessar_reduzir)}</div></div>
+      <div class="comp-item"><div class="comp-item-label">Decisão necessária da liderança</div><div class="comp-item-value">${escHtml(c.decisao_lideranca)}</div></div>` : `
       <div class="comp-item"><div class="comp-item-label">Compromisso 90 dias</div><div class="comp-item-value">${escHtml(c.c90)}</div></div>
-      <div class="comp-item"><div class="comp-item-label">Cobrar no próximo QRS</div><div class="comp-item-value">${escHtml(c.cobranca)}</div></div>
+      <div class="comp-item"><div class="comp-item-label">Cobrar no próximo QRS</div><div class="comp-item-value">${escHtml(c.cobranca)}</div></div>`}
     </div>`).join('');
     $id('modal-content').innerHTML = `<button class="btn btn-outline btn-sm" id="btn-back-hist" style="margin-bottom:16px">← Voltar</button>
       <div class="modal-title">Compromissos — ${escHtml((item.evento||{}).nome||'')}</div>${rows||'<div class="empty"><div class="empty-t">Sem compromissos.</div></div>'}`;
@@ -818,7 +905,7 @@ function renderPreQrs() {
 
     $id('content-area').innerHTML = `
       ${phaseProgress()}
-      <div class="sec-title">Pré-QRS</div>
+      <div class="sec-title">Balanço do Trimestre</div>
       <div class="sec-sub">Suas respostas foram enviadas. Obrigada pela transparência!</div>
       <div class="preqrs-done-card">
         <div class="preqrs-done-icon">✅</div>
@@ -838,7 +925,7 @@ function renderPreQrs() {
 
     $id('content-area').innerHTML = `
       ${phaseProgress()}
-      <div class="sec-title">Pré-QRS</div>
+      <div class="sec-title">Balanço do Trimestre</div>
       <div class="sec-sub">Responda antes da reunião. Suas respostas guiarão as discussões do dia.</div>
       <div class="info-box blue"><strong>Dica:</strong> Seja direto e honesto. O objetivo é chegar ao QRS Day preparado para decidir, não apenas para relatar.</div>
       <form id="form-preqrs">${fields}
@@ -897,6 +984,112 @@ function renderCheckinInTab() {
 }
 
 // ╔══════════════════════════════════════════════════════════╗
+//  RENDER — INDICADORES
+// ╚══════════════════════════════════════════════════════════╝
+function indTrendBadge(t) {
+  if (t === 'melhorou') return `<span class="ind-trend melhorou">▲ Melhorou</span>`;
+  if (t === 'piorou')   return `<span class="ind-trend piorou">▼ Piorou</span>`;
+  return `<span class="ind-trend estavel">● Estável</span>`;
+}
+
+function renderIndicadores() {
+  hide('sticky-bar');
+  if (S.myIndicadores) {
+    const slots = [1,2,3].map(i => S.myIndicadores[`ind${i}`]).filter(Boolean);
+    const cards = slots.map(ind => `
+      <div class="ind-display">
+        <div class="ind-display-name">${escHtml(ind.nome)} ${indTrendBadge(ind.tendencia)}</div>
+        <div class="ind-display-vals">
+          <span>Atual: <strong>${escHtml(String(ind.valor_atual))} ${escHtml(ind.unidade)}</strong></span>
+          <span>${escHtml(ind.base)}: <strong>${escHtml(String(ind.valor_base))} ${escHtml(ind.unidade)}</strong></span>
+        </div>
+      </div>`).join('') || '<div class="sec-sub">Nenhum indicador enviado.</div>';
+
+    $id('content-area').innerHTML = `
+      ${phaseProgress()}
+      <div class="sec-title">Indicadores</div>
+      <div class="sec-sub">Seus indicadores foram enviados.</div>
+      <div class="preqrs-done-card">
+        <div class="preqrs-done-icon">✅</div>
+        <div class="preqrs-done-text">Indicadores registrados em ${fmtDate(S.myIndicadores.submitted_at)}.<br>Você pode editar até o início da reunião.</div>
+      </div>
+      ${cards}
+      <button class="btn btn-outline" id="btn-edit-ind" style="margin-top:8px">✏️ Editar indicadores</button>`;
+
+    $id('btn-edit-ind').addEventListener('click', () => { S.myIndicadores = null; renderIndicadores(); });
+  } else {
+    const slots = [0,1,2].map(i => `
+      <div class="ind-card">
+        <div class="ind-card-title">Indicador ${i+1} ${i>0?'(opcional)':''}</div>
+        <div class="ind-tip">💡 ${IND_TIPS[i]}</div>
+        <div class="field" style="margin-bottom:10px">
+          <label>Nome do indicador</label>
+          <input type="text" name="nome${i}" placeholder="Ex.: Taxa de turnover, NPS, custo por contratação…" ${i===0?'required':''}>
+        </div>
+        <div class="ind-row">
+          <div class="field" style="margin:0">
+            <label>Valor atual</label>
+            <input type="text" name="valor_atual${i}" placeholder="Ex.: 12">
+          </div>
+          <div class="field" style="margin:0">
+            <label>Unidade</label>
+            <select name="unidade${i}">${IND_UNIDADES.map(u=>`<option value="${u}">${u}</option>`).join('')}</select>
+          </div>
+          <div class="field" style="margin:0">
+            <label>Tendência</label>
+            <select name="tendencia${i}">
+              <option value="melhorou">▲ Melhorou</option>
+              <option value="estavel">● Estável</option>
+              <option value="piorou">▼ Piorou</option>
+            </select>
+          </div>
+        </div>
+        <div class="ind-row2">
+          <div class="field" style="margin:0">
+            <label>Comparar com</label>
+            <select name="base${i}">${IND_BASES.map(b=>`<option value="${b}">${b}</option>`).join('')}</select>
+          </div>
+          <div class="field" style="margin:0">
+            <label>Valor de comparação</label>
+            <input type="text" name="valor_base${i}" placeholder="Ex.: 18">
+          </div>
+          <div></div>
+        </div>
+      </div>`).join('');
+
+    $id('content-area').innerHTML = `
+      ${phaseProgress()}
+      <div class="sec-title">Indicadores</div>
+      <div class="sec-sub">Compartilhe até 3 indicadores do seu setor neste trimestre.</div>
+      <div class="info-box blue"><strong>Dica:</strong> Escolha números que mostrem a real direção do seu setor — para o bem ou para o mal. Indicadores servem para decidir, não para impressionar.</div>
+      <form id="form-ind">${slots}
+        <button type="submit" class="btn btn-primary" style="margin-top:8px">💾 Enviar indicadores</button>
+      </form>`;
+
+    $id('form-ind').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target, btn = f.querySelector('[type=submit]');
+      btn.disabled = true; btn.textContent = 'Salvando…';
+      const inds = [0,1,2].map(i => {
+        const nome = f[`nome${i}`]?.value.trim();
+        if (!nome) return null;
+        return {
+          nome,
+          valor_atual: f[`valor_atual${i}`]?.value.trim() || '',
+          unidade: f[`unidade${i}`]?.value || '',
+          tendencia: f[`tendencia${i}`]?.value || 'estavel',
+          base: f[`base${i}`]?.value || '',
+          valor_base: f[`valor_base${i}`]?.value.trim() || '',
+        };
+      });
+      if (!inds[0]) { toast('Preencha ao menos o Indicador 1.', 'err'); btn.disabled=false; btn.textContent='Enviar indicadores'; return; }
+      try { await saveIndicadores(inds); toast('Indicadores salvos!', 'ok'); renderIndicadores(); }
+      catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Enviar indicadores'; }
+    });
+  }
+}
+
+// ╔══════════════════════════════════════════════════════════╗
 //  RENDER — SUBMISSÃO
 // ╚══════════════════════════════════════════════════════════╝
 function renderSubmissao() {
@@ -929,22 +1122,43 @@ function renderSubmissao() {
     tabKeys.forEach(t => { const el=$id(`tab-${t}`); if(el) el.hidden=(t!==btn.dataset.tab); });
   }));
 
+  document.querySelectorAll('#toggle-tipo-entrada .toggle-btn').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('#toggle-tipo-entrada .toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tipo = btn.dataset.tipo;
+    $id('form-problem').dataset.tipo = tipo;
+    $id('bloco-problema').hidden = tipo !== 'problema';
+    $id('bloco-conflito').hidden = tipo !== 'conflito';
+  }));
+
   $id('form-problem')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const f = e.target, btn = f.querySelector('[type=submit]');
+    const tipo = f.dataset.tipo;
     btn.disabled=true; btn.textContent='Salvando…';
     try {
-      await submitProblem({
-        titulo: f.titulo.value.trim(), setor_responsavel: f.setor_responsavel.value,
-        descricao_resumida: f.descricao_resumida.value.trim(),
-        impacto_interno: f.impacto_interno.value.trim(),
-        impacto_externo: f.impacto_externo.value.trim(),
-        custo_direto: f.custo_direto.value.trim(),
-        custo_oportunidade: f.custo_oportunidade.value.trim(),
-      });
-      toast('Problema cadastrado!', 'ok');
+      if (tipo === 'conflito') {
+        const titulo = f.titulo_conflito.value.trim(), setor_responsavel = f.setor_responsavel_conflito.value;
+        const tensao = f.tensao.value.trim(), impacto_conflito = f.impacto_conflito.value.trim();
+        const acordo = f.acordo.value.trim(), dono = f.dono.value.trim();
+        if (!titulo || !setor_responsavel || !tensao || !impacto_conflito || !acordo || !dono) {
+          toast('Preencha todos os campos do conflito.', 'err'); btn.disabled=false; btn.textContent='Salvar'; return;
+        }
+        await submitProblem({ tipo:'conflito', titulo, setor_responsavel, tensao, impacto_conflito, acordo, dono });
+      } else {
+        await submitProblem({
+          tipo:'problema',
+          titulo: f.titulo.value.trim(), setor_responsavel: f.setor_responsavel.value,
+          descricao_resumida: f.descricao_resumida.value.trim(),
+          impacto_interno: f.impacto_interno.value.trim(),
+          impacto_externo: f.impacto_externo.value.trim(),
+          custo_direto: f.custo_direto.value.trim(),
+          custo_oportunidade: f.custo_oportunidade.value.trim(),
+        });
+      }
+      toast(tipo === 'conflito' ? 'Conflito cadastrado!' : 'Problema cadastrado!', 'ok');
       await loadProblemas(); renderSubmissao();
-    } catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Salvar Problema'; }
+    } catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Salvar'; }
   });
 
   document.querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', async () => {
@@ -959,7 +1173,13 @@ function renderSubmissao() {
 
 function renderForm() {
   const opts = SETORES.map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('');
-  return `<form id="form-problem">
+  return `
+    <div class="toggle-group" id="toggle-tipo-entrada">
+      <button type="button" class="toggle-btn active" data-tipo="problema">📋 Problema</button>
+      <button type="button" class="toggle-btn" data-tipo="conflito">🤝 Conflito</button>
+    </div>
+    <form id="form-problem" data-tipo="problema">
+    <div id="bloco-problema">
     <div class="form-block">
       <div class="form-block-title">Identificação e Contexto</div>
       <div class="field"><label>Título do Problema *</label><input name="titulo" required placeholder="Um nome claro e objetivo"></div>
@@ -982,18 +1202,42 @@ function renderForm() {
       <div class="field"><label>Custo de Oportunidade *</label>
         <textarea name="custo_oportunidade" required placeholder="O que a empresa deixa de ganhar porque esse problema existe?"></textarea></div>
     </div>
-    <button type="submit" class="btn btn-primary">💾 Salvar Problema</button>
+    </div>
+    <div id="bloco-conflito" hidden>
+    <div class="form-block conflito-card">
+      <div class="form-block-title">Identificação</div>
+      <div class="field"><label>Título do Conflito *</label><input name="titulo_conflito" placeholder="Um nome claro e objetivo"></div>
+      <div class="field"><label>Setor Responsável *</label>
+        <select name="setor_responsavel_conflito"><option value="">— selecione —</option>${opts}</select></div>
+    </div>
+    <div class="form-block conflito-card">
+      <div class="form-block-title">Detalhes do Conflito</div>
+      <div class="field"><label>Tensão — o que está acontecendo *</label>
+        <textarea name="tensao" placeholder="Descreva a situação de tensão entre pessoas, áreas ou processos"></textarea></div>
+      <div class="field"><label>Impacto — o que isso causa *</label>
+        <textarea name="impacto_conflito" placeholder="Qual o efeito dessa tensão no time, no cliente ou no resultado?"></textarea></div>
+      <div class="field"><label>Acordo — como vamos operar daqui para frente *</label>
+        <textarea name="acordo" placeholder="Qual o combinado entre as partes a partir de agora?"></textarea></div>
+      <div class="field"><label>Dono — quem garante que o acordo será cumprido *</label>
+        <input name="dono" placeholder="Nome do responsável pelo acordo"></div>
+    </div>
+    </div>
+    <button type="submit" class="btn btn-primary">💾 Salvar</button>
   </form>`;
+}
+
+function tipoChip(p) {
+  return p.tipo === 'conflito' ? `<span class="chip chip-conflito">🤝 Conflito</span>` : `<span class="chip chip-problema">📋 Problema</span>`;
 }
 
 function renderMyProblems(list) {
   if (!list.length) return `<div class="empty"><div class="empty-icon">📭</div><div class="empty-t">Nenhum problema cadastrado.</div></div>`;
   return list.map((p,i) => `
-    <div class="my-card">
+    <div class="my-card${p.tipo==='conflito'?' conflito-card':''}">
       <div class="num-badge">${i+1}</div>
       <div class="my-card-body">
         <div class="my-card-title">${escHtml(p.titulo)}</div>
-        <div class="my-card-meta"><span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · ${fmtDate(p.created_at)}</div>
+        <div class="my-card-meta">${tipoChip(p)} <span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · ${fmtDate(p.created_at)}</div>
       </div>
       <div class="my-card-actions">
         <button class="btn btn-outline btn-sm" data-view="${p.id}">Ver</button>
@@ -1005,11 +1249,11 @@ function renderMyProblems(list) {
 function renderAllProblems() {
   if (!S.problemas.length) return `<div class="empty"><div class="empty-icon">📭</div><div class="empty-t">Nenhum problema ainda.</div></div>`;
   return S.problemas.map((p,i) => `
-    <div class="my-card">
+    <div class="my-card${p.tipo==='conflito'?' conflito-card':''}">
       <div class="num-badge">${i+1}</div>
       <div class="my-card-body">
         <div class="my-card-title">${escHtml(p.titulo)}</div>
-        <div class="my-card-meta"><span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · <strong>${escHtml(p.leader_name)}</strong> · ${escHtml(p.setor_autor)} · ${fmtDate(p.created_at)}</div>
+        <div class="my-card-meta">${tipoChip(p)} <span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · <strong>${escHtml(p.leader_name)}</strong> · ${escHtml(p.setor_autor)} · ${fmtDate(p.created_at)}</div>
       </div>
       <div class="my-card-actions"><button class="btn btn-outline btn-sm" data-view="${p.id}">Ver</button></div>
     </div>`).join('');
@@ -1107,7 +1351,7 @@ function renderVotacao() {
   $id('content-area').innerHTML = `
     ${phaseProgress()}
     <div class="sec-title">Avalie os Problemas</div>
-    <div class="sec-sub">Para cada problema, dê uma nota de 1 a 5 em três critérios. Clique em "Avaliar" para abrir o formulário.</div>
+    <div class="sec-sub">Para cada problema, dê uma nota de 1 a 3 em três critérios. O score é o produto das três notas (máx. 27). Clique em "Avaliar" para abrir o formulário.</div>
     <div class="info-box blue">
       <strong>Critérios de avaliação:</strong><br>
       🎯 <strong>Impacto</strong> — Quanto isso afeta resultado, cliente ou equipe?<br>
@@ -1124,12 +1368,12 @@ function renderRatingCards() {
   return S.problemas.map((p,i) => {
     const av = S.myAvaliacoes[p.id];
     return `
-    <div class="v-card${av?' rated':''}" data-id="${p.id}">
+    <div class="v-card${av?' rated':''}${p.tipo==='conflito'?' conflito-card':''}" data-id="${p.id}">
       <div class="v-card-head">
         <div class="num-badge">${i+1}</div>
         <div class="v-card-info">
           <div class="v-card-title">${escHtml(p.titulo)}</div>
-          <div class="v-card-meta"><span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · ${escHtml(p.leader_name)}</div>
+          <div class="v-card-meta">${tipoChip(p)} <span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · ${escHtml(p.leader_name)}</div>
         </div>
         <div class="v-card-arrow">▾</div>
       </div>
@@ -1138,7 +1382,7 @@ function renderRatingCards() {
         ${av ? `<div>
           <span class="rated-label">✓ Avaliado</span>
           <div class="score-preview" style="margin-top:6px">
-            🎯${av.impacto} ⚡${av.urgencia} 🔧${av.controle} · <strong>Score: ${av.score}/15</strong>
+            🎯${av.impacto} ⚡${av.urgencia} 🔧${av.controle} · <strong>Score: ${av.score}/27</strong>
           </div></div>` : '<span></span>'}
         <button class="btn ${av?'btn-outline':'btn-primary'} btn-sm" data-rate="${p.id}">
           ${av ? '✏️ Reeditar' : '🎯 Avaliar'}
@@ -1169,7 +1413,7 @@ function openRatingModal(problemaId) {
       <div class="crit-label">${emoji} ${label}</div>
       <div class="crit-hint">${hint}</div>
       <div class="crit-btns">
-        ${[1,2,3,4,5].map(v => `<button class="crit-btn${ev(key,v)?' sel':''}" data-key="${key}" data-val="${v}">${v}</button>`).join('')}
+        ${[1,2,3].map(v => `<button class="crit-btn${ev(key,v)?' sel':''}" data-key="${key}" data-val="${v}">${v}</button>`).join('')}
       </div>
     </div>`;
 
@@ -1194,8 +1438,8 @@ function openRatingModal(problemaId) {
   function updateScore() {
     const { impacto, urgencia, controle } = vals;
     if (impacto && urgencia && controle) {
-      const total = impacto + urgencia + controle;
-      $id('score-preview').innerHTML = `<strong>${total}</strong><span>/15 — Score desta avaliação</span>`;
+      const total = impacto * urgencia * controle;
+      $id('score-preview').innerHTML = `<strong>${total}</strong><span>/27 — Score desta avaliação (${impacto}×${urgencia}×${controle})</span>`;
       $id('btn-save-rating').disabled = false;
     }
   }
@@ -1232,13 +1476,14 @@ async function renderCompromissos() {
 
   let html = `${phaseProgress()}
     <div class="sec-title">Compromissos Finais</div>
-    <div class="sec-sub">Cada líder registra seu compromisso para os próximos 90 dias.</div>`;
+    <div class="sec-sub">Cada líder registra o que vai começar/continuar, o que vai cessar/reduzir e o que precisa da liderança.</div>`;
 
   if (S.myCompromisso) {
+    const c = S.myCompromisso;
     html += `<div class="comp-done-card">
       <span style="font-size:26px">✅</span>
       <div><strong style="font-size:14px;color:var(--g)">Compromisso registrado!</strong><br>
-      <span style="font-size:13px;color:var(--muted)">Registrado em ${fmtDate(S.myCompromisso.submitted_at)}</span></div>
+      <span style="font-size:13px;color:var(--muted)">Registrado em ${fmtDate(c.submitted_at)}</span></div>
     </div>
     <div class="comp-card">
       <div class="comp-card-header">
@@ -1246,39 +1491,68 @@ async function renderCompromissos() {
         <div><div class="comp-card-name">${escHtml(S.leader.name)}</div><div class="comp-card-setor">${escHtml(S.leader.setor)}</div></div>
       </div>
       <div class="comp-item">
-        <div class="comp-item-label">Compromisso para os próximos 90 dias</div>
-        <div class="comp-item-value">${escHtml(S.myCompromisso.c90)}</div>
+        <div class="comp-item-label">Começar / Continuar — Compromissos assumidos</div>
+        <div class="comp-item-value">${escHtml(c.compromissos_assumidos)}</div>
       </div>
       <div class="comp-item">
-        <div class="comp-item-label">O que pode ser cobrado no próximo QRS</div>
-        <div class="comp-item-value">${escHtml(S.myCompromisso.cobranca)}</div>
+        <div class="comp-item-label">Começar / Continuar — Comportamentos positivos</div>
+        <div class="comp-item-value">${escHtml(c.comportamentos_positivos)}</div>
+      </div>
+      <div class="comp-item">
+        <div class="comp-item-label">Cessar / Reduzir — Atividades e comportamentos</div>
+        <div class="comp-item-value">${escHtml(c.cessar_reduzir)}</div>
+      </div>
+      <div class="comp-item">
+        <div class="comp-item-label">Que decisão eu preciso que a liderança tome para eu entregar?</div>
+        <div class="comp-item-value">${escHtml(c.decisao_liderança || c.decisao_lideranca)}</div>
       </div>
     </div>
     <button class="btn btn-outline btn-sm" id="btn-edit-comp">✏️ Editar compromisso</button>`;
   } else {
     html += `<div class="info-box green"><strong>Seja específico.</strong> Em vez de "vou melhorar comunicação", escreva: "vou garantir que toda implantação tenha checklist, responsável e data de go-live registrada."</div>
     <div class="form-block">
-      <div class="form-block-title">Seu compromisso</div>
+      <div class="form-block-title">Começar / Continuar</div>
       <div class="field">
-        <label>O que eu assumo para os próximos 90 dias? *</label>
-        <textarea id="inp-c90" required rows="4" placeholder="Seja específico: o que vai mudar, com que métrica e quem vai ver?"></textarea>
+        <label>Compromissos assumidos — o que de fato vou entregar além do que pretendia *</label>
+        <textarea id="inp-compromissos-assumidos" required rows="3" placeholder="Seja específico: o que vai mudar, com que métrica e quem vai ver?"></textarea>
       </div>
       <div class="field">
-        <label>O que pode ser cobrado de mim no próximo QRS? *</label>
-        <textarea id="inp-cobranca" required rows="3" placeholder="Ex: Taxa de implantação dentro do prazo acima de 90%"></textarea>
+        <label>Comportamentos positivos *</label>
+        <textarea id="inp-comportamentos-positivos" required rows="3" placeholder="Que comportamento eu vou começar ou continuar a praticar?"></textarea>
       </div>
-      <button class="btn btn-green" id="btn-save-comp">💚 Registrar compromisso</button>
-    </div>`;
+    </div>
+    <div class="form-block">
+      <div class="form-block-title">Cessar / Reduzir</div>
+      <div class="field">
+        <label>Atividades e comportamentos *</label>
+        <textarea id="inp-cessar-reduzir" required rows="3" placeholder="O que eu vou parar de fazer ou fazer menos?"></textarea>
+      </div>
+    </div>
+    <div class="form-block">
+      <div class="form-block-title">Liderança</div>
+      <div class="field">
+        <label>Que decisão eu preciso que a liderança tome para eu entregar? *</label>
+        <textarea id="inp-decisao-lideranca" required rows="3" placeholder="Ex: Aprovação de orçamento, definição de prioridade, contratação…"></textarea>
+      </div>
+    </div>
+    <button class="btn btn-green" id="btn-save-comp">💚 Registrar compromisso</button>`;
   }
 
   $id('content-area').innerHTML = html;
 
   $id('btn-save-comp')?.addEventListener('click', async () => {
-    const c90 = $id('inp-c90')?.value.trim();
-    const cobranca = $id('inp-cobranca')?.value.trim();
-    if (!c90 || !cobranca) { toast('Preencha os dois campos.', 'err'); return; }
+    const compromissos_assumidos = $id('inp-compromissos-assumidos')?.value.trim();
+    const comportamentos_positivos = $id('inp-comportamentos-positivos')?.value.trim();
+    const cessar_reduzir = $id('inp-cessar-reduzir')?.value.trim();
+    const decisao_lideranca = $id('inp-decisao-lideranca')?.value.trim();
+    if (!compromissos_assumidos || !comportamentos_positivos || !cessar_reduzir || !decisao_lideranca) {
+      toast('Preencha todos os campos.', 'err'); return;
+    }
     const btn = $id('btn-save-comp'); btn.disabled=true; btn.textContent='Salvando…';
-    try { await saveCompromisso(c90, cobranca); toast('Compromisso registrado!', 'ok'); await renderCompromissos(); }
+    try {
+      await saveCompromisso({ compromissos_assumidos, comportamentos_positivos, cessar_reduzir, decisao_lideranca });
+      toast('Compromisso registrado!', 'ok'); await renderCompromissos();
+    }
     catch(e) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Registrar compromisso'; }
   });
 
@@ -1301,7 +1575,7 @@ async function renderEncerrado() {
       <div class="rank">${i===0?'🥇':`#${i+1}`}</div>
       <div class="res-info">
         <div class="res-title">${escHtml(p.titulo)}</div>
-        <div class="res-meta"><span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · ${escHtml(p.leader_name)}</div>
+        <div class="res-meta">${tipoChip(p)} <span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · ${escHtml(p.leader_name)}</div>
         <div class="res-criteria">
           <span class="res-crit-item">🎯 Impacto <strong>${s.impacto}</strong></span>
           <span class="res-crit-item">⚡ Urgência <strong>${s.urgencia}</strong></span>
@@ -1317,7 +1591,7 @@ async function renderEncerrado() {
   $id('content-area').innerHTML = `
     ${phaseProgress()}
     <div class="sec-title">Resultado do QRS Day</div>
-    <div class="sec-sub">${escHtml(S.evento.nome)} · Ranking por score (Impacto + Urgência + Controle)</div>
+    <div class="sec-sub">${escHtml(S.evento.nome)} · Ranking por score (Impacto × Urgência × Controle)</div>
     ${cards || '<div class="empty"><div class="empty-t">Nenhuma avaliação registrada.</div></div>'}`;
 }
 
@@ -1325,6 +1599,14 @@ async function renderEncerrado() {
 //  DETAIL / MODAL UTILS
 // ╚══════════════════════════════════════════════════════════╝
 function detailGrid(p) {
+  if (p.tipo === 'conflito') {
+    return `<div class="dg">
+      <div class="dg-full"><div class="dg-label">Tensão</div><div class="dg-value">${escHtml(p.tensao)}</div></div>
+      <div class="dg-full"><div class="dg-label">Impacto</div><div class="dg-value">${escHtml(p.impacto_conflito)}</div></div>
+      <div class="dg-full"><div class="dg-label">Acordo</div><div class="dg-value">${escHtml(p.acordo)}</div></div>
+      <div><div class="dg-label">Dono</div><div class="dg-value">${escHtml(p.dono)}</div></div>
+    </div>`;
+  }
   return `<div class="dg">
     <div class="dg-full"><div class="dg-label">Descrição Resumida</div><div class="dg-value">${escHtml(p.descricao_resumida)}</div></div>
     <div><div class="dg-label">Impacto Interno</div><div class="dg-value">${escHtml(p.impacto_interno)}</div></div>
@@ -1338,6 +1620,7 @@ function openModal(p) {
   $id('modal-content').innerHTML = `
     <div class="modal-title">${escHtml(p.titulo)}</div>
     <div style="margin-bottom:16px">
+      ${tipoChip(p)}
       <span class="chip chip-a">${escHtml(p.setor_responsavel)}</span>
       <span class="chip chip-p" style="margin-left:6px">Por: ${escHtml(p.leader_name)} · ${escHtml(p.setor_autor)}</span>
       <span style="font-size:12px;color:var(--muted);margin-left:8px">${fmtDate(p.created_at)}</span>
@@ -1374,6 +1657,57 @@ async function adminViewPreQrs() {
   show('modal');
 }
 
+async function adminViewIndicadores() {
+  const snap = await db.ref('indicadores').get();
+  if (!snap.exists()) { toast('Nenhum indicador enviado ainda.', 'info'); return; }
+  const entries = [];
+  snap.forEach(child => entries.push(child.val()));
+
+  let html = `<div class="modal-title">Indicadores por Líder</div>`;
+  entries.forEach((r, ri) => {
+    const slots = [1,2,3].map(i => r[`ind${i}`]).filter(Boolean);
+    html += `<div class="resp-card">
+      <div class="resp-card-header">
+        <div class="num-badge">${escHtml(r.leader_name?.charAt(0)||'?')}</div>
+        <div><div class="resp-card-name">${escHtml(r.leader_name)}</div><div class="resp-card-setor">${escHtml(r.setor)} · ${fmtDate(r.submitted_at)}</div></div>
+      </div>
+      ${slots.map((ind, i) => `
+        <div class="ind-display">
+          <div class="ind-display-name">${escHtml(ind.nome)} ${indTrendBadge(ind.tendencia)}</div>
+          <div class="ind-display-vals">
+            <span>Atual: <strong>${escHtml(String(ind.valor_atual))} ${escHtml(ind.unidade)}</strong></span>
+            <span>${escHtml(ind.base)}: <strong>${escHtml(String(ind.valor_base))} ${escHtml(ind.unidade)}</strong></span>
+          </div>
+          <canvas class="ind-chart" id="ind-chart-${ri}-${i}"></canvas>
+        </div>`).join('')}
+    </div>`;
+  });
+  $id('modal-content').innerHTML = html;
+  show('modal');
+
+  entries.forEach((r, ri) => {
+    const slots = [1,2,3].map(i => r[`ind${i}`]).filter(Boolean);
+    slots.forEach((ind, i) => {
+      const canvas = $id(`ind-chart-${ri}-${i}`);
+      if (!canvas) return;
+      const atual = parseFloat(String(ind.valor_atual).replace(',', '.')) || 0;
+      const base = parseFloat(String(ind.valor_base).replace(',', '.')) || 0;
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: [ind.base, 'Atual'],
+          datasets: [{ data: [base, atual], backgroundColor: ['#94A3B8', '#0F766E'] }],
+        },
+        options: {
+          indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { x: { beginAtZero: true } },
+        },
+      });
+    });
+  });
+}
+
 async function adminViewVerdades() {
   const snap = await db.ref('verdades').get();
   if (!snap.exists()) { toast('Nenhuma verdade ainda.', 'info'); return; }
@@ -1404,12 +1738,20 @@ async function adminViewCompromissos() {
         <div><div class="comp-card-name">${escHtml(c.leader_name)}</div><div class="comp-card-setor">${escHtml(c.setor)}</div></div>
       </div>
       <div class="comp-item">
-        <div class="comp-item-label">Compromisso para os próximos 90 dias</div>
-        <div class="comp-item-value">${escHtml(c.c90)}</div>
+        <div class="comp-item-label">Começar / Continuar — Compromissos assumidos</div>
+        <div class="comp-item-value">${escHtml(c.compromissos_assumidos)}</div>
       </div>
       <div class="comp-item">
-        <div class="comp-item-label">O que pode ser cobrado no próximo QRS</div>
-        <div class="comp-item-value">${escHtml(c.cobranca)}</div>
+        <div class="comp-item-label">Começar / Continuar — Comportamentos positivos</div>
+        <div class="comp-item-value">${escHtml(c.comportamentos_positivos)}</div>
+      </div>
+      <div class="comp-item">
+        <div class="comp-item-label">Cessar / Reduzir — Atividades e comportamentos</div>
+        <div class="comp-item-value">${escHtml(c.cessar_reduzir)}</div>
+      </div>
+      <div class="comp-item">
+        <div class="comp-item-label">Que decisão eu preciso que a liderança tome para eu entregar?</div>
+        <div class="comp-item-value">${escHtml(c.decisao_lideranca)}</div>
       </div>
     </div>`;
   });
@@ -1425,7 +1767,8 @@ async function downloadExcel() {
   const wb = XLSX.utils.book_new();
 
   // Aba: Problemas
-  const ranked = [...S.problemas].sort((a,b) => (scores[b.id]?.total||0) - (scores[a.id]?.total||0));
+  const problemasOnly = S.problemas.filter(p => p.tipo !== 'conflito');
+  const ranked = [...problemasOnly].sort((a,b) => (scores[b.id]?.total||0) - (scores[a.id]?.total||0));
   const hProb = ['Nº','Título','Setor Responsável','Cadastrado por','Setor','Descrição','Impacto Interno','Impacto Externo','Custo Direto','Custo de Oportunidade','Score Total','Avaliações'];
   const rProb = ranked.map((p,i) => {
     const s = scores[p.id]||{total:0,count:0};
@@ -1435,18 +1778,45 @@ async function downloadExcel() {
   ws1['!cols'] = [{wch:4},{wch:35},{wch:22},{wch:20},{wch:22},{wch:40},{wch:40},{wch:40},{wch:40},{wch:40},{wch:10},{wch:12}];
   XLSX.utils.book_append_sheet(wb, ws1, 'Problemas');
 
+  // Aba: Conflitos
+  const conflitos = S.problemas.filter(p => p.tipo === 'conflito');
+  if (conflitos.length) {
+    const hCf = ['Título','Setor Responsável','Cadastrado por','Setor','Tensão','Impacto','Acordo','Dono'];
+    const rCf = conflitos.map(p => [p.titulo, p.setor_responsavel, p.leader_name, p.setor_autor, p.tensao, p.impacto_conflito, p.acordo, p.dono]);
+    const wsCf = XLSX.utils.aoa_to_sheet([hCf,...rCf]);
+    wsCf['!cols'] = [{wch:30},{wch:22},{wch:20},{wch:22},{wch:40},{wch:40},{wch:40},{wch:20}];
+    XLSX.utils.book_append_sheet(wb, wsCf, 'Conflitos');
+  }
+
+  // Aba: Indicadores
+  const indSnap = await db.ref('indicadores').get();
+  if (indSnap.exists()) {
+    const hInd = ['Líder','Setor','Indicador','Valor Atual','Unidade','Tendência','Comparação','Valor de Comparação'];
+    const rInd = [];
+    indSnap.forEach(c => {
+      const r = c.val();
+      [1,2,3].forEach(i => {
+        const ind = r[`ind${i}`];
+        if (ind) rInd.push([r.leader_name, r.setor, ind.nome, ind.valor_atual, ind.unidade, ind.tendencia, ind.base, ind.valor_base]);
+      });
+    });
+    const wsInd = XLSX.utils.aoa_to_sheet([hInd,...rInd]);
+    wsInd['!cols'] = [{wch:20},{wch:22},{wch:30},{wch:14},{wch:10},{wch:12},{wch:25},{wch:18}];
+    XLSX.utils.book_append_sheet(wb, wsInd, 'Indicadores');
+  }
+
   // Aba: Pré-QRS
   const pqSnap = await db.ref('pre_qrs').get();
   if (pqSnap.exists()) {
-    const hPq = ['Líder','Setor','P1','P2','P3','P4','P5','P6','P7'];
+    const hPq = ['Líder','Setor', ...PRE_QRS_QUESTIONS.map((q,i)=>`P${i+1}`)];
     const rPq = [];
     pqSnap.forEach(c => {
       const r = c.val();
-      rPq.push([r.leader_name, r.setor, r.q1, r.q2, r.q3, r.q4, r.q5, r.q6, r.q7]);
+      rPq.push([r.leader_name, r.setor, ...PRE_QRS_QUESTIONS.map(q=>r[q.key])]);
     });
     const ws2 = XLSX.utils.aoa_to_sheet([hPq,...rPq]);
-    ws2['!cols'] = [{wch:20},{wch:22},{wch:45},{wch:45},{wch:45},{wch:45},{wch:45},{wch:45},{wch:45}];
-    XLSX.utils.book_append_sheet(wb, ws2, 'Pré-QRS');
+    ws2['!cols'] = [{wch:20},{wch:22},{wch:45},{wch:45},{wch:45},{wch:45}];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Balanço do Trimestre');
   }
 
   // Aba: Verdades
@@ -1466,14 +1836,14 @@ async function downloadExcel() {
   // Aba: Compromissos
   const cmSnap = await db.ref('compromissos').get();
   if (cmSnap.exists()) {
-    const hCm = ['Líder','Setor','Compromisso 90 dias','Pode cobrar no próximo QRS'];
+    const hCm = ['Líder','Setor','Compromissos assumidos','Comportamentos positivos','Cessar/Reduzir','Decisão necessária da liderança'];
     const rCm = [];
     cmSnap.forEach(c => {
       const v = c.val();
-      rCm.push([v.leader_name, v.setor, v.c90, v.cobranca]);
+      rCm.push([v.leader_name, v.setor, v.compromissos_assumidos, v.comportamentos_positivos, v.cessar_reduzir, v.decisao_lideranca]);
     });
     const ws4 = XLSX.utils.aoa_to_sheet([hCm,...rCm]);
-    ws4['!cols'] = [{wch:20},{wch:22},{wch:60},{wch:60}];
+    ws4['!cols'] = [{wch:20},{wch:22},{wch:45},{wch:45},{wch:45},{wch:45}];
     XLSX.utils.book_append_sheet(wb, ws4, 'Compromissos');
   }
 
@@ -1517,11 +1887,11 @@ async function downloadPDF() {
     cy(16); tx('RANKING DOS PROBLEMAS',M,y,{size:10,color:muted,bold:true}); y+=8;
     doc.autoTable({
       startY:y,
-      head:[['#','Problema','Setor','Score','Av.']],
-      body:ranked.map((p,i)=>[`#${i+1}`,p.titulo,p.setor_responsavel,String(scores[p.id]?.total||0),String(scores[p.id]?.count||0)]),
+      head:[['#','Tipo','Item','Setor','Score','Av.']],
+      body:ranked.map((p,i)=>[`#${i+1}`,p.tipo==='conflito'?'Conflito':'Problema',p.titulo,p.setor_responsavel,String(scores[p.id]?.total||0),String(scores[p.id]?.count||0)]),
       styles:{font:'helvetica',fontSize:9},
       headStyles:{fillColor:primary,textColor:255,fontStyle:'bold'},
-      columnStyles:{0:{cellWidth:12,halign:'center'},3:{cellWidth:16,halign:'center'},4:{cellWidth:12,halign:'center'}},
+      columnStyles:{0:{cellWidth:10,halign:'center'},1:{cellWidth:20},4:{cellWidth:16,halign:'center'},5:{cellWidth:12,halign:'center'}},
       margin:{left:M,right:M},
     });
     y = doc.lastAutoTable.finalY + 14;
@@ -1533,17 +1903,22 @@ async function downloadPDF() {
     const titleL = doc.splitTextToSize(p.titulo,LW-14);
     tx(`${i+1}.`,M,y,{size:14,color:primary,bold:true});
     titleL.forEach((l,li)=>tx(l,M+10,y+li*7,{size:13,bold:true})); y+=titleL.length*7+2;
-    tx(`Setor: ${p.setor_responsavel} · Por: ${p.leader_name} · Score: ${scores[p.id]?.total||0}`,M,y,{size:9,color:muted}); y+=8;
+    tx(`Tipo: ${p.tipo==='conflito'?'Conflito':'Problema'} · Setor: ${p.setor_responsavel} · Por: ${p.leader_name} · Score: ${scores[p.id]?.total||0}`,M,y,{size:9,color:muted}); y+=8;
     const c1=M,c2=M+LW/2+4,cW=LW/2-4;
-    ['descricao_resumida'].forEach(k=>{cy(14);tx(k.replace(/_/g,' ').toUpperCase(),c1,y,{size:8,color:muted,bold:true});y+=5;doc.splitTextToSize(p[k],LW).forEach(l=>{cy(5);tx(l,c1,y,{size:10});y+=5;});y+=3;});
-    cy(24);let y1=y,y2=y;
-    tx('IMPACTO INTERNO',c1,y1,{size:8,color:muted,bold:true});y1+=5;doc.splitTextToSize(p.impacto_interno,cW).forEach(l=>{tx(l,c1,y1,{size:10});y1+=5;});
-    tx('IMPACTO EXTERNO',c2,y2,{size:8,color:muted,bold:true});y2+=5;doc.splitTextToSize(p.impacto_externo,cW).forEach(l=>{tx(l,c2,y2,{size:10});y2+=5;});
-    y=Math.max(y1,y2)+4;
-    cy(24);y1=y;y2=y;
-    tx('CUSTO DIRETO',c1,y1,{size:8,color:muted,bold:true});y1+=5;doc.splitTextToSize(p.custo_direto,cW).forEach(l=>{tx(l,c1,y1,{size:10});y1+=5;});
-    tx('CUSTO DE OPORTUNIDADE',c2,y2,{size:8,color:muted,bold:true});y2+=5;doc.splitTextToSize(p.custo_oportunidade,cW).forEach(l=>{tx(l,c2,y2,{size:10});y2+=5;});
-    y=Math.max(y1,y2)+12;
+    if (p.tipo === 'conflito') {
+      ['tensao','impacto_conflito','acordo'].forEach(k=>{cy(14);tx(({tensao:'TENSÃO',impacto_conflito:'IMPACTO',acordo:'ACORDO'})[k],c1,y,{size:8,color:muted,bold:true});y+=5;doc.splitTextToSize(p[k]||'',LW).forEach(l=>{cy(5);tx(l,c1,y,{size:10});y+=5;});y+=3;});
+      cy(14);tx('DONO',c1,y,{size:8,color:muted,bold:true});y+=5;doc.splitTextToSize(p.dono||'',LW).forEach(l=>{cy(5);tx(l,c1,y,{size:10});y+=5;});y+=12;
+    } else {
+      ['descricao_resumida'].forEach(k=>{cy(14);tx(k.replace(/_/g,' ').toUpperCase(),c1,y,{size:8,color:muted,bold:true});y+=5;doc.splitTextToSize(p[k],LW).forEach(l=>{cy(5);tx(l,c1,y,{size:10});y+=5;});y+=3;});
+      cy(24);let y1=y,y2=y;
+      tx('IMPACTO INTERNO',c1,y1,{size:8,color:muted,bold:true});y1+=5;doc.splitTextToSize(p.impacto_interno,cW).forEach(l=>{tx(l,c1,y1,{size:10});y1+=5;});
+      tx('IMPACTO EXTERNO',c2,y2,{size:8,color:muted,bold:true});y2+=5;doc.splitTextToSize(p.impacto_externo,cW).forEach(l=>{tx(l,c2,y2,{size:10});y2+=5;});
+      y=Math.max(y1,y2)+4;
+      cy(24);y1=y;y2=y;
+      tx('CUSTO DIRETO',c1,y1,{size:8,color:muted,bold:true});y1+=5;doc.splitTextToSize(p.custo_direto,cW).forEach(l=>{tx(l,c1,y1,{size:10});y1+=5;});
+      tx('CUSTO DE OPORTUNIDADE',c2,y2,{size:8,color:muted,bold:true});y2+=5;doc.splitTextToSize(p.custo_oportunidade,cW).forEach(l=>{tx(l,c2,y2,{size:10});y2+=5;});
+      y=Math.max(y1,y2)+12;
+    }
   });
 
   // Compromissos
@@ -1553,8 +1928,22 @@ async function downloadPDF() {
     doc.setFillColor(...primary); doc.rect(0,0,W,26,'F');
     tx('Compromissos dos Líderes',M,17,{size:14,color:[255,255,255],bold:true});
     const cmRows=[];
-    cmSnap.forEach(c=>{const v=c.val();cmRows.push([v.leader_name,v.setor,v.c90,v.cobranca]);});
-    doc.autoTable({startY:34,head:[['Líder','Setor','Compromisso','Cobrar no próximo QRS']],body:cmRows,styles:{font:'helvetica',fontSize:9},headStyles:{fillColor:primary,textColor:255},margin:{left:M,right:M}});
+    cmSnap.forEach(c=>{const v=c.val();cmRows.push([v.leader_name,v.setor,v.compromissos_assumidos,v.comportamentos_positivos,v.cessar_reduzir,v.decisao_lideranca]);});
+    doc.autoTable({startY:34,head:[['Líder','Setor','Compromissos assumidos','Comportamentos positivos','Cessar/Reduzir','Decisão da liderança']],body:cmRows,styles:{font:'helvetica',fontSize:8},headStyles:{fillColor:primary,textColor:255},margin:{left:M,right:M}});
+  }
+
+  // Indicadores
+  const indSnap2 = await db.ref('indicadores').get();
+  if (indSnap2.exists()) {
+    np();
+    doc.setFillColor(...primary); doc.rect(0,0,W,26,'F');
+    tx('Indicadores por Líder',M,17,{size:14,color:[255,255,255],bold:true});
+    const indRows=[];
+    indSnap2.forEach(c=>{
+      const r=c.val();
+      [1,2,3].forEach(i=>{ const ind=r[`ind${i}`]; if(ind) indRows.push([r.leader_name, ind.nome, `${ind.valor_atual} ${ind.unidade}`, ind.tendencia, `${ind.base}: ${ind.valor_base} ${ind.unidade}`]); });
+    });
+    doc.autoTable({startY:34,head:[['Líder','Indicador','Atual','Tendência','Comparação']],body:indRows,styles:{font:'helvetica',fontSize:9},headStyles:{fillColor:primary,textColor:255},margin:{left:M,right:M}});
   }
 
   doc.save(`qrs-day-${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.pdf`);
@@ -1566,11 +1955,12 @@ async function downloadPDF() {
 // ╚══════════════════════════════════════════════════════════╝
 async function refresh() {
   await loadEvento(); await loadProblemas();
-  await loadMyPreQrs(); await loadMyVerdades();
+  await loadMyPreQrs(); await loadMyIndicadores(); await loadMyVerdades();
   await loadMyAvaliacoes(); await loadMyCompromisso();
   renderHeader(); await renderAdmin();
   const f = S.evento.fase;
   if      (f === 'pre_qrs')       renderPreQrs();
+  else if (f === 'indicadores')   renderIndicadores();
   else if (f === 'submissao')     renderSubmissao();
   else if (f === 'verdades')      await renderVerdades();
   else if (f === 'votacao')       renderVotacao();
