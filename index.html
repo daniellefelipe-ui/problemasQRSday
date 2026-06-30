@@ -226,12 +226,15 @@
     .pp-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Montserrat',sans-serif;border:2px solid var(--border);background:#fff;color:var(--muted)}
     .pp-dot.done{background:var(--g);border-color:var(--g);color:#fff}
     .pp-dot.active{background:var(--p);border-color:var(--p);color:#fff}
+    .pp-dot.pending{background:#FFF5F5;border-color:var(--red);color:var(--red)}
     .pp-label{font-size:10px;color:var(--muted);text-align:center;margin-top:4px;font-family:'Montserrat',sans-serif;font-weight:600;white-space:nowrap}
     .pp-label.active{color:var(--p)}
     .pp-label.done{color:var(--g)}
+    .pp-label.pending{color:var(--red)}
     .pp-inner{display:flex;flex-direction:column;align-items:center}
     .pp-line{width:24px;height:2px;background:var(--border);margin-bottom:20px;flex-shrink:0}
     .pp-line.done{background:var(--g)}
+    .pp-line.pending{background:var(--red)}
 
     /* ── Phase description ───────────────────────────────── */
     .phase-desc-box{display:flex;align-items:flex-start;gap:14px;background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:16px 20px;margin-bottom:22px;border-left:4px solid var(--p);font-size:14px;line-height:1.6;color:var(--text)}
@@ -330,7 +333,7 @@ const SETORES = [...new Set(LEADERS.map(l => l.setor))];
 
 const PHASES = ['pre_qrs','submissao','verdades','votacao','compromissos','encerrado'];
 const PHASE_LABELS = {
-  pre_qrs:'Pré-QRS', submissao:'Submissão', verdades:'Verdades Incômodas',
+  pre_qrs:'Check-in', submissao:'Submissão', verdades:'Verdades Incômodas',
   votacao:'Votação', compromissos:'Compromissos', encerrado:'Encerrado'
 };
 const PHASE_CSS = {
@@ -536,7 +539,7 @@ function renderHeader() {
 }
 
 const PHASE_DESC = {
-  pre_qrs:      { emoji:'📝', titulo:'Pré-QRS', desc:'Responda 7 perguntas de reflexão antes da reunião. Seja honesto — suas respostas guiarão as discussões do dia.' },
+  pre_qrs:      { emoji:'✍️', titulo:'Check-in Individual', desc:'Responda 7 perguntas de reflexão antes da reunião. Seja honesto — suas respostas guiarão as discussões do dia.' },
   submissao:    { emoji:'📋', titulo:'Submissão de Problemas', desc:'Cadastre os problemas que você quer colocar em pauta. Descreva o impacto e os custos para que todos entendam a gravidade.' },
   verdades:     { emoji:'💬', titulo:'Verdades Incômodas', desc:'Escreva o que ninguém está falando. Você pode assinar ou permanecer anônimo. Uma frase honesta vale mais do que um relatório bonito.' },
   votacao:      { emoji:'🎯', titulo:'Votação por Critérios', desc:'Avalie cada problema em três dimensões: Impacto no negócio, Urgência e Controle da liderança. O sistema calcula o ranking automaticamente.' },
@@ -544,16 +547,36 @@ const PHASE_DESC = {
   encerrado:    { emoji:'🏁', titulo:'QRS Day Encerrado', desc:'Confira o ranking final dos problemas e os compromissos assumidos pela liderança. Os resultados ficam salvos no histórico.' },
 };
 
+function myPhaseCompletion() {
+  const cur = PHASES.indexOf(S.evento.fase);
+  const totalProbs = S.problemas.length;
+  return {
+    pre_qrs:      S.myPreQrs !== null,
+    submissao:    cur > PHASES.indexOf('submissao'), // fase passou
+    verdades:     S.myVerdades !== null,
+    votacao:      totalProbs > 0 && Object.keys(S.myAvaliacoes).length >= totalProbs,
+    compromissos: S.myCompromisso !== null,
+    encerrado:    true,
+  };
+}
+
 function phaseProgress() {
   const cur = PHASES.indexOf(S.evento.fase);
+  const completion = myPhaseCompletion();
   const steps = PHASES.map((p,i) => {
-    const done = i < cur, active = i === cur;
+    const past   = i < cur;
+    const active = i === cur;
+    const done   = completion[p];
+    let dotClass = active ? 'active' : '';
+    let dotContent = i + 1;
+    if (past && done)  { dotClass = 'done';    dotContent = '✓'; }
+    if (past && !done) { dotClass = 'pending';  dotContent = '!'; }
     return `<div class="pp-step">
       <div class="pp-inner">
-        <div class="pp-dot ${done?'done':active?'active':''}">${done?'✓':i+1}</div>
-        <div class="pp-label ${done?'done':active?'active':''}">${phaseLabel(p).replace(' Incômodas','').replace('ão','ão')}</div>
+        <div class="pp-dot ${dotClass}">${dotContent}</div>
+        <div class="pp-label ${active?'active':past&&done?'done':past&&!done?'pending':''}">${phaseLabel(p).replace(' Incômodas','')}</div>
       </div>
-      ${i < PHASES.length-1 ? `<div class="pp-line ${i<cur?'done':''}"></div>` : ''}
+      ${i < PHASES.length-1 ? `<div class="pp-line ${past?done?'done':'pending':''}"></div>` : ''}
     </div>`;
   }).join('');
 
@@ -834,26 +857,71 @@ function renderPreQrs() {
   }
 }
 
+function renderCheckinInTab() {
+  const el = $id('tab-checkin');
+  if (!el) return;
+  if (S.myPreQrs) {
+    const answers = PRE_QRS_QUESTIONS.map((q,i) => `
+      <div class="preqrs-q">
+        <div class="preqrs-q-num">Pergunta ${i+1}</div>
+        <div class="preqrs-q-text">${escHtml(q.label)}</div>
+        <div class="preqrs-answer">${escHtml(S.myPreQrs[q.key]||'—')}</div>
+      </div>`).join('');
+    el.innerHTML = `<div class="preqrs-done-card" style="margin-top:4px">
+      <div class="preqrs-done-icon">✅</div>
+      <div class="preqrs-done-text">Check-in concluído em ${fmtDate(S.myPreQrs.submitted_at)}.<br>Você pode editar até o início da reunião.</div>
+    </div>${answers}
+    <button class="btn btn-outline" id="btn-edit-checkin-tab" style="margin-top:8px">✏️ Editar respostas</button>`;
+    $id('btn-edit-checkin-tab').addEventListener('click', () => { S.myPreQrs = null; renderCheckinInTab(); });
+  } else {
+    const fields = PRE_QRS_QUESTIONS.map((q,i) => `
+      <div class="preqrs-q">
+        <div class="preqrs-q-num">Pergunta ${i+1} de ${PRE_QRS_QUESTIONS.length}</div>
+        <div class="preqrs-q-text">${escHtml(q.label)}</div>
+        <div class="field" style="margin:0"><textarea name="${q.key}" required placeholder="Escreva aqui com honestidade…" rows="3"></textarea></div>
+      </div>`).join('');
+    el.innerHTML = `<div class="info-box red" style="margin-top:4px"><strong>Check-in pendente!</strong> Você ainda não respondeu as perguntas de reflexão. Preencha antes da reunião.</div>
+      <form id="form-checkin-tab">${fields}
+        <button type="submit" class="btn btn-primary" style="margin-top:8px">💾 Enviar respostas</button>
+      </form>`;
+    $id('form-checkin-tab').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = e.target, btn = f.querySelector('[type=submit]');
+      btn.disabled=true; btn.textContent='Salvando…';
+      const data = {};
+      PRE_QRS_QUESTIONS.forEach(q => { data[q.key] = f[q.key]?.value.trim() || ''; });
+      try { await savePreQrs(data); toast('Check-in salvo!', 'ok'); renderCheckinInTab(); renderSubmissao(); }
+      catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Enviar respostas'; }
+    });
+  }
+}
+
 // ╔══════════════════════════════════════════════════════════╗
 //  RENDER — SUBMISSÃO
 // ╚══════════════════════════════════════════════════════════╝
 function renderSubmissao() {
   hide('sticky-bar');
   const mine = S.problemas.filter(p => Number(p.leader_id) === Number(S.leader.id));
+  const checkinAlert = !S.myPreQrs ? `<span style="font-size:10px;background:var(--redl);color:var(--red);padding:2px 7px;border-radius:10px;font-weight:700;margin-left:5px">!</span>` : '';
   const adminTab   = S.leader.isAdmin ? `<button class="tab" data-tab="todos">📂 Todos (${S.problemas.length})</button>` : '';
   const adminPanel = S.leader.isAdmin ? `<div id="tab-todos" hidden>${renderAllProblems()}</div>` : '';
-  const tabKeys    = S.leader.isAdmin ? ['cadastrar','meus','todos'] : ['cadastrar','meus'];
+  const tabKeys    = S.leader.isAdmin ? ['checkin','cadastrar','meus','todos'] : ['checkin','cadastrar','meus'];
 
   $id('content-area').innerHTML = `
     ${phaseProgress()}
     <div class="tabs">
+      <button class="tab" data-tab="checkin">✍️ Check-in${checkinAlert}</button>
       <button class="tab active" data-tab="cadastrar">✏️ Cadastrar Problema</button>
-      <button class="tab" data-tab="meus">📋 Meus Problemas (${mine.length})</button>
+      <button class="tab" data-tab="meus">📋 Meus (${mine.length})</button>
       ${adminTab}
     </div>
+    <div id="tab-checkin" hidden></div>
     <div id="tab-cadastrar">${renderForm()}</div>
     <div id="tab-meus" hidden>${renderMyProblems(mine)}</div>
     ${adminPanel}`;
+
+  // Renderiza check-in dentro da aba
+  renderCheckinInTab();
 
   document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
