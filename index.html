@@ -233,6 +233,11 @@
     .pp-line{width:24px;height:2px;background:var(--border);margin-bottom:20px;flex-shrink:0}
     .pp-line.done{background:var(--g)}
 
+    /* ── Phase description ───────────────────────────────── */
+    .phase-desc-box{display:flex;align-items:flex-start;gap:14px;background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:16px 20px;margin-bottom:22px;border-left:4px solid var(--p);font-size:14px;line-height:1.6;color:var(--text)}
+    .phase-desc-box strong{font-family:'Montserrat',sans-serif;font-size:14px;color:var(--p);display:block;margin-bottom:3px}
+    .phase-desc-emoji{font-size:26px;flex-shrink:0;margin-top:2px}
+
     /* ── Info box ────────────────────────────────────────── */
     .info-box{border-radius:var(--r);padding:16px 20px;margin-bottom:20px;font-size:14px;line-height:1.6}
     .info-box.blue{background:var(--pl);border:1px solid #BFD2F7;color:var(--pd)}
@@ -530,6 +535,15 @@ function renderHeader() {
   $id('hdr-fase').innerHTML = `<span class="fase-badge ${phaseCss(S.evento.fase)}">${phaseLabel(S.evento.fase)}</span>`;
 }
 
+const PHASE_DESC = {
+  pre_qrs:      { emoji:'📝', titulo:'Pré-QRS', desc:'Responda 7 perguntas de reflexão antes da reunião. Seja honesto — suas respostas guiarão as discussões do dia.' },
+  submissao:    { emoji:'📋', titulo:'Submissão de Problemas', desc:'Cadastre os problemas que você quer colocar em pauta. Descreva o impacto e os custos para que todos entendam a gravidade.' },
+  verdades:     { emoji:'💬', titulo:'Verdades Incômodas', desc:'Escreva o que ninguém está falando. Você pode assinar ou permanecer anônimo. Uma frase honesta vale mais do que um relatório bonito.' },
+  votacao:      { emoji:'🎯', titulo:'Votação por Critérios', desc:'Avalie cada problema em três dimensões: Impacto no negócio, Urgência e Controle da liderança. O sistema calcula o ranking automaticamente.' },
+  compromissos: { emoji:'💚', titulo:'Compromissos Finais', desc:'O QRS Day não termina com diagnóstico — termina com decisão. Escreva o que você assume para os próximos 90 dias e o que pode ser cobrado de você.' },
+  encerrado:    { emoji:'🏁', titulo:'QRS Day Encerrado', desc:'Confira o ranking final dos problemas e os compromissos assumidos pela liderança. Os resultados ficam salvos no histórico.' },
+};
+
 function phaseProgress() {
   const cur = PHASES.indexOf(S.evento.fase);
   const steps = PHASES.map((p,i) => {
@@ -542,7 +556,14 @@ function phaseProgress() {
       ${i < PHASES.length-1 ? `<div class="pp-line ${i<cur?'done':''}"></div>` : ''}
     </div>`;
   }).join('');
-  return `<div class="phase-progress">${steps}</div>`;
+
+  const d = PHASE_DESC[S.evento.fase];
+  const desc = d ? `<div class="phase-desc-box">
+    <span class="phase-desc-emoji">${d.emoji}</span>
+    <div><strong>${d.titulo}</strong><br>${d.desc}</div>
+  </div>` : '';
+
+  return `<div class="phase-progress">${steps}</div>${desc}`;
 }
 
 // ╔══════════════════════════════════════════════════════════╗
