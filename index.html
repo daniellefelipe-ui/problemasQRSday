@@ -294,6 +294,7 @@
       <input type="password" id="inp-senha" placeholder="••••••••" autocomplete="current-password">
     </div>
     <button class="btn btn-primary btn-full" id="btn-enter" style="margin-top:8px">Entrar</button>
+    <button type="button" id="btn-forgot" hidden style="margin-top:10px;background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;width:100%;text-align:center">Esqueci minha senha</button>
   </div>
 </div>
 
@@ -1932,8 +1933,24 @@ LEADERS.forEach(l => {
 sel.addEventListener('change', () => {
   const found = LEADERS.find(l => l.id === parseInt(sel.value));
   $id('field-senha').hidden = !found;
+  $id('btn-forgot').hidden = !found;
   $id('inp-senha').value = '';
   if (found) $id('inp-senha').focus();
+});
+
+$id('btn-forgot').addEventListener('click', async () => {
+  const id = parseInt(sel.value);
+  if (!id) return;
+  const leader = LEADERS.find(l => l.id === id);
+  const btn = $id('btn-forgot'); btn.disabled=true; btn.textContent='Enviando…';
+  try {
+    await auth.sendPasswordResetEmail(leader.email);
+    toast(`E-mail de redefinição enviado para ${leader.email}`, 'ok');
+  } catch(e) {
+    toast('Erro ao enviar e-mail. Tente novamente.', 'err');
+    console.error(e);
+  }
+  btn.disabled=false; btn.textContent='Esqueci minha senha';
 });
 
 $id('inp-senha').addEventListener('keydown', (e) => {
