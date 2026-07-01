@@ -297,6 +297,28 @@
   </div>
 </div>
 
+<!-- ═══════════════════ TROCA DE SENHA ═══════════════════ -->
+<div id="view-change-password" hidden>
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg)">
+    <div class="login-card">
+      <div class="brand">ECG<span>NOW</span></div>
+      <div class="brand-sub">Primeiro acesso — defina sua senha</div>
+      <div class="info-box blue" style="margin-bottom:20px;text-align:left">
+        <strong>Bem-vinda ao QRS Day!</strong><br>Por segurança, defina uma senha pessoal antes de continuar. Mínimo 8 caracteres.
+      </div>
+      <div class="field">
+        <label>Nova senha</label>
+        <input type="password" id="inp-nova-senha" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label>Confirmar nova senha</label>
+        <input type="password" id="inp-confirma-senha" placeholder="Repita a senha" autocomplete="new-password">
+      </div>
+      <button class="btn btn-primary btn-full" id="btn-salvar-senha" style="margin-top:8px">Definir senha e entrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════════ APP ═══════════════════════ -->
 <div id="view-app" hidden>
   <header id="app-header">
@@ -1960,9 +1982,11 @@ async function setupAuth() {
       if (e.code === 'auth/email-already-in-use') existentes++;
       else console.warn(l.email, e.message);
     }
+    // Marca troca de senha obrigatória para não-admins
+    if (!l.isAdmin) await db.ref(`usuarios_flags/${l.id}/mustChangePassword`).set(true);
   }
   await tempApp.delete();
-  toast(`Contas criadas: ${criadas} | Já existiam: ${existentes} | Senha padrão: ${SENHA_PADRAO}`, 'ok');
+  toast(`Contas: ${criadas} criadas, ${existentes} já existiam. Senha padrão: ${SENHA_PADRAO}`, 'ok');
 }
 
 // Gerencia sessão via Firebase Auth (substitui localStorage)
@@ -1972,19 +1996,46 @@ auth.onAuthStateChanged(async (user) => {
     if (!leader) { await auth.signOut(); return; }
     S.leader = leader;
     const btn = $id('btn-enter');
+    if (btn) { btn.disabled=false; btn.textContent='Entrar'; }
     try {
+      // Verifica se precisa trocar a senha
+      const flagSnap = await db.ref(`usuarios_flags/${leader.id}/mustChangePassword`).get();
+      if (flagSnap.val() === true) {
+        hide('view-login'); hide('view-app'); show('view-change-password');
+        return;
+      }
       await refresh();
-      hide('view-login'); show('view-app');
-      if (btn) { btn.disabled=false; btn.textContent='Entrar'; }
+      hide('view-login'); hide('view-change-password'); show('view-app');
     } catch(e) {
       console.error(e);
       await auth.signOut();
     }
   } else {
     S = { leader:null, evento:null, problemas:[], viewFase:null, myPreQrs:null, myIndicadores:null, myAvaliacoes:{}, myCompromisso:null };
-    hide('view-app'); show('view-login');
+    hide('view-app'); hide('view-change-password'); show('view-login');
     const btn = $id('btn-enter');
     if (btn) { btn.disabled=false; btn.textContent='Entrar'; }
+  }
+});
+
+// Troca de senha obrigatória no primeiro acesso
+$id('btn-salvar-senha').addEventListener('click', async () => {
+  const nova     = $id('inp-nova-senha').value;
+  const confirma = $id('inp-confirma-senha').value;
+  if (nova.length < 8)             { toast('Senha deve ter pelo menos 8 caracteres.', 'err'); return; }
+  if (nova === 'QRSDay@2025')      { toast('Use uma senha diferente da padrão.', 'err'); return; }
+  if (nova !== confirma)           { toast('As senhas não coincidem.', 'err'); return; }
+  const btn = $id('btn-salvar-senha'); btn.disabled=true; btn.textContent='Salvando…';
+  try {
+    await auth.currentUser.updatePassword(nova);
+    await db.ref(`usuarios_flags/${S.leader.id}/mustChangePassword`).remove();
+    toast('Senha definida! Bem-vinda ao QRS Day.', 'ok');
+    await refresh();
+    hide('view-change-password'); show('view-app');
+  } catch(e) {
+    btn.disabled=false; btn.textContent='Definir senha e entrar';
+    toast('Erro ao salvar senha. Tente novamente.', 'err');
+    console.error(e);
   }
 });
 </script>
