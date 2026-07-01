@@ -2027,6 +2027,9 @@ $id('btn-salvar-senha').addEventListener('click', async () => {
   if (nova !== confirma)           { toast('As senhas não coincidem.', 'err'); return; }
   const btn = $id('btn-salvar-senha'); btn.disabled=true; btn.textContent='Salvando…';
   try {
+    // Reautentica com a senha padrão antes de trocar (exigido pelo Firebase)
+    const credential = firebase.auth.EmailAuthProvider.credential(auth.currentUser.email, 'QRSDay@2025');
+    await auth.currentUser.reauthenticateWithCredential(credential);
     await auth.currentUser.updatePassword(nova);
     await db.ref(`usuarios_flags/${S.leader.id}/mustChangePassword`).remove();
     toast('Senha definida! Bem-vinda ao QRS Day.', 'ok');
