@@ -690,12 +690,9 @@ async function renderAdmin() {
   btns += `<button class="btn btn-outline" id="btn-excel">📊 Excel</button>`;
   btns += `<button class="btn btn-outline" id="btn-historico">🗂 Histórico</button>`;
   btns += `<button class="btn btn-outline" id="btn-setup-auth">🔐 Criar Contas</button>`;
-  if (f === 'pre_qrs' || f === 'submissao' || f === 'encerrado')
-    btns += `<button class="btn btn-outline" id="btn-view-preqrs">👁 Ver Pré-QRS</button>`;
-  if (f === 'indicadores' || f === 'submissao' || f === 'encerrado')
-    btns += `<button class="btn btn-outline" id="btn-view-ind">📈 Ver Indicadores</button>`;
-  if (f === 'compromissos' || f === 'encerrado')
-    btns += `<button class="btn btn-outline" id="btn-view-comp">👁 Ver Compromissos</button>`;
+  btns += `<button class="btn btn-outline" id="btn-view-preqrs">👁 Ver Check-in</button>`;
+  btns += `<button class="btn btn-outline" id="btn-view-ind">📈 Ver Indicadores</button>`;
+  btns += `<button class="btn btn-outline" id="btn-view-comp">👁 Ver Compromissos</button>`;
   if (f === 'votacao')
     btns += `<button class="btn btn-primary" id="btn-admin-votar">🗳 Votar agora</button>`;
 
