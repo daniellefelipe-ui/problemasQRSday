@@ -308,6 +308,10 @@
         <strong>Bem-vinda ao QRS Day!</strong><br>Por segurança, defina uma senha pessoal antes de continuar. Mínimo 8 caracteres.
       </div>
       <div class="field">
+        <label>Senha atual</label>
+        <input type="password" id="inp-senha-atual" placeholder="Senha que você usou para entrar" autocomplete="current-password">
+      </div>
+      <div class="field">
         <label>Nova senha</label>
         <input type="password" id="inp-nova-senha" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
       </div>
@@ -2065,15 +2069,17 @@ auth.onAuthStateChanged(async (user) => {
 
 // Troca de senha obrigatória no primeiro acesso
 $id('btn-salvar-senha').addEventListener('click', async () => {
-  const nova     = $id('inp-nova-senha').value;
-  const confirma = $id('inp-confirma-senha').value;
+  const senhaAtual = $id('inp-senha-atual').value;
+  const nova       = $id('inp-nova-senha').value;
+  const confirma   = $id('inp-confirma-senha').value;
+  if (!senhaAtual)                 { toast('Informe a senha atual.', 'err'); return; }
   if (nova.length < 8)             { toast('Senha deve ter pelo menos 8 caracteres.', 'err'); return; }
   if (nova === 'QRSDay@2025')      { toast('Use uma senha diferente da padrão.', 'err'); return; }
+  if (nova === senhaAtual)         { toast('A nova senha deve ser diferente da atual.', 'err'); return; }
   if (nova !== confirma)           { toast('As senhas não coincidem.', 'err'); return; }
   const btn = $id('btn-salvar-senha'); btn.disabled=true; btn.textContent='Salvando…';
   try {
-    // Reautentica com a senha padrão antes de trocar (exigido pelo Firebase)
-    const credential = firebase.auth.EmailAuthProvider.credential(auth.currentUser.email, 'QRSDay@2025');
+    const credential = firebase.auth.EmailAuthProvider.credential(auth.currentUser.email, senhaAtual);
     await auth.currentUser.reauthenticateWithCredential(credential);
     await auth.currentUser.updatePassword(nova);
     await db.ref(`usuarios_flags/${S.leader.id}/mustChangePassword`).remove();
@@ -2082,7 +2088,11 @@ $id('btn-salvar-senha').addEventListener('click', async () => {
     hide('view-change-password'); show('view-app');
   } catch(e) {
     btn.disabled=false; btn.textContent='Definir senha e entrar';
-    toast('Erro ao salvar senha. Tente novamente.', 'err');
+    if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
+      toast('Senha atual incorreta. Verifique e tente novamente.', 'err');
+    } else {
+      toast('Erro ao salvar senha. Tente novamente.', 'err');
+    }
     console.error(e);
   }
 });
