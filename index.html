@@ -958,7 +958,7 @@ function renderPreQrs() {
       btn.disabled = true; btn.textContent = 'Salvando…';
       const data = {};
       PRE_QRS_QUESTIONS.forEach(q => { data[q.key] = f[q.key]?.value.trim() || ''; });
-      try { await savePreQrs(data); toast('Respostas salvas!', 'ok'); renderPreQrs(); }
+      try { await savePreQrs(data); toast('Respostas salvas!', 'ok'); await renderPhaseContent('pre_qrs'); }
       catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Enviar respostas'; }
     });
   }
@@ -1130,7 +1130,7 @@ function renderIndicadores() {
         };
       });
       if (!inds[0]) { toast('Preencha ao menos o Indicador 1.', 'err'); btn.disabled=false; btn.textContent='Enviar indicadores'; return; }
-      try { await saveIndicadores(inds); toast('Indicadores salvos!', 'ok'); renderIndicadores(); }
+      try { await saveIndicadores(inds); toast('Indicadores salvos!', 'ok'); await renderPhaseContent('indicadores'); }
       catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Enviar indicadores'; }
     });
   }
