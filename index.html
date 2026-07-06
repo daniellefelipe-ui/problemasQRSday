@@ -934,7 +934,18 @@ function renderPreQrs() {
       ${answers}
       <button class="btn btn-outline" id="btn-edit-preqrs" style="margin-top:8px">✏️ Editar respostas</button>`;
 
-    $id('btn-edit-preqrs').addEventListener('click', () => { S.myPreQrs = null; renderPreQrs(); });
+    $id('btn-edit-preqrs').addEventListener('click', async () => {
+      const saved = S.myPreQrs;
+      S.myPreQrs = null;
+      await renderPhaseContent('pre_qrs');
+      if (saved) {
+        const ca = $id('content-area');
+        PRE_QRS_QUESTIONS.forEach(q => {
+          const el = ca.querySelector(`[name="${q.key}"]`);
+          if (el) el.value = saved[q.key] || '';
+        });
+      }
+    });
   } else {
     const fields = PRE_QRS_QUESTIONS.map((q,i) => `
       <div class="preqrs-q">
@@ -1063,7 +1074,25 @@ function renderIndicadores() {
       ${cards}
       <button class="btn btn-outline" id="btn-edit-ind" style="margin-top:8px">✏️ Editar indicadores</button>`;
 
-    $id('btn-edit-ind').addEventListener('click', () => { S.myIndicadores = null; renderIndicadores(); });
+    $id('btn-edit-ind').addEventListener('click', async () => {
+      const saved = S.myIndicadores;
+      S.myIndicadores = null;
+      await renderPhaseContent('indicadores');
+      if (saved) {
+        const ca = $id('content-area');
+        [0,1,2].forEach(j => {
+          const ind = saved[`ind${j+1}`];
+          if (!ind) return;
+          const q = n => ca.querySelector(`[name="${n}"]`);
+          if (q(`nome${j}`))        q(`nome${j}`).value        = ind.nome        || '';
+          if (q(`valor_atual${j}`)) q(`valor_atual${j}`).value = ind.valor_atual || '';
+          if (q(`unidade${j}`))     q(`unidade${j}`).value     = ind.unidade     || '';
+          if (q(`tendencia${j}`))   q(`tendencia${j}`).value   = ind.tendencia   || 'estavel';
+          if (q(`base${j}`))        q(`base${j}`).value        = ind.base        || '';
+          if (q(`valor_base${j}`))  q(`valor_base${j}`).value  = ind.valor_base  || '';
+        });
+      }
+    });
   } else {
     const slots = [0,1,2].map(i => `
       <div class="ind-card">
