@@ -1905,6 +1905,8 @@ async function renderPhaseContent(f) {
 
 async function navigateToPhase(f) {
   S.viewFase = f;
+  await loadMyPreQrs(); await loadMyIndicadores();
+  await loadMyAvaliacoes(); await loadMyCompromisso();
   await renderPhaseContent(f);
 }
 
