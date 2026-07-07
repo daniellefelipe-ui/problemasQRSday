@@ -2047,6 +2047,8 @@ auth.onAuthStateChanged(async (user) => {
     const btn = $id('btn-enter');
     if (btn) { btn.disabled=false; btn.textContent='Entrar'; }
     try {
+      // Registra o UID real do Firebase para permitir regras granulares no banco
+      await db.ref(`leader_uid/${leader.id}`).set(user.uid).catch(() => {});
       // Verifica se precisa trocar a senha
       const flagSnap = await db.ref(`usuarios_flags/${leader.id}/mustChangePassword`).get();
       if (flagSnap.val() === true) {
