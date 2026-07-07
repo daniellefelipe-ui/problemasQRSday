@@ -1634,7 +1634,20 @@ async function renderCompromissos() {
     });
   }
 
-  $id('btn-edit-comp')?.addEventListener('click', () => { S.myCompromisso = null; renderCompromissos(); });
+  $id('btn-edit-comp')?.addEventListener('click', async () => {
+    const saved = S.myCompromisso;
+    S.myCompromisso = null;
+    await renderCompromissos();
+    if (saved) {
+      const map = {
+        'inp-compromissos-assumidos': saved.compromissos_assumidos,
+        'inp-comportamentos-positivos': saved.comportamentos_positivos,
+        'inp-cessar-reduzir': saved.cessar_reduzir,
+        'inp-decisao-lideranca': saved.decisao_lideranca || saved.decisao_liderança,
+      };
+      Object.entries(map).forEach(([id, val]) => { const el = $id(id); if (el && val) el.value = val; });
+    }
+  });
 }
 
 // ╔══════════════════════════════════════════════════════════╗
