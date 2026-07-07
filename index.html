@@ -1814,16 +1814,22 @@ async function adminViewIndicadores() {
 }
 
 async function adminViewProblemas() {
-  await loadProblemas();
-  if (!S.problemas.length) { toast('Nenhum problema cadastrado ainda.', 'info'); return; }
+  // Leitura direta do Firebase (independente de S.problemas)
+  const snap = await db.ref('problemas').get();
+  const problemas = [];
+  if (snap.exists()) snap.forEach(c => { if (c.val()) problemas.push({ id: c.key, ...c.val() }); });
+  problemas.sort((a,b) => (a.created_at||0) - (b.created_at||0));
+  S.problemas = problemas; // atualiza estado global também
+
+  if (!problemas.length) { toast('Nenhum problema cadastrado ainda.', 'info'); return; }
   const bySetor = {};
-  S.problemas.forEach(p => {
+  problemas.forEach(p => {
     const s = p.setor_autor || 'Sem setor';
     if (!bySetor[s]) bySetor[s] = [];
     bySetor[s].push(p);
   });
 
-  let html = `<div class="modal-title">📋 Problemas e Conflitos (${S.problemas.length})</div>`;
+  let html = `<div class="modal-title">📋 Problemas e Conflitos (${problemas.length})</div>`;
   Object.entries(bySetor).sort(([a],[b]) => a.localeCompare(b)).forEach(([setor, probs]) => {
     html += `<div style="margin-bottom:8px;padding:6px 12px;background:var(--p);color:#fff;border-radius:6px;font-weight:700;font-family:Montserrat,sans-serif;font-size:13px">${escHtml(setor)}</div>`;
     probs.forEach((p, i) => {
