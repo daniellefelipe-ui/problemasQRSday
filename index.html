@@ -696,6 +696,7 @@ async function renderAdmin() {
   btns += `<button class="btn btn-outline" id="btn-setup-auth">🔐 Criar Contas</button>`;
   btns += `<button class="btn btn-outline" id="btn-view-preqrs">👁 Ver Check-in</button>`;
   btns += `<button class="btn btn-outline" id="btn-view-ind">📈 Ver Indicadores</button>`;
+  btns += `<button class="btn btn-outline" id="btn-view-prob">📋 Ver Problemas</button>`;
   btns += `<button class="btn btn-outline" id="btn-view-comp">👁 Ver Compromissos</button>`;
   if (f === 'votacao')
     btns += `<button class="btn btn-primary" id="btn-admin-votar">🗳 Votar agora</button>`;
@@ -711,6 +712,7 @@ async function renderAdmin() {
   $id('btn-setup-auth')?.addEventListener('click', setupAuth);
   $id('btn-view-preqrs')?.addEventListener('click', adminViewPreQrs);
   $id('btn-view-ind')?.addEventListener('click', adminViewIndicadores);
+  $id('btn-view-prob')?.addEventListener('click', adminViewProblemas);
   $id('btn-view-comp')?.addEventListener('click', adminViewCompromissos);
   $id('btn-admin-votar')?.addEventListener('click', () => { renderVotacao(); window.scrollTo({top:$id('content-area').offsetTop, behavior:'smooth'}); });
 
@@ -1667,35 +1669,62 @@ async function adminViewIndicadores() {
   const entries = [];
   snap.forEach(child => entries.push(child.val()));
 
-  let html = `<div class="modal-title">Indicadores por Líder</div>`;
-  entries.forEach((r, ri) => {
-    const slots = [1,2,3].map(i => r[`ind${i}`]).filter(Boolean);
-    html += `<div class="resp-card">
-      <div class="resp-card-header">
-        <div class="num-badge">${escHtml(r.leader_name?.charAt(0)||'?')}</div>
-        <div><div class="resp-card-name">${escHtml(r.leader_name)}</div><div class="resp-card-setor">${escHtml(r.setor)} · ${fmtDate(r.submitted_at)}</div></div>
-      </div>
-      ${slots.map((ind, i) => `
-        <div class="ind-display">
-          <div class="ind-display-name">${escHtml(ind.nome)} ${indTrendBadge(ind.tendencia)}</div>
-          <div class="ind-display-vals">
-            <span>Atual: <strong>${escHtml(String(ind.valor_atual))} ${escHtml(ind.unidade)}</strong></span>
-            <span>${escHtml(ind.base)}: <strong>${escHtml(String(ind.valor_base))} ${escHtml(ind.unidade)}</strong></span>
-          </div>
-          <canvas class="ind-chart" id="ind-chart-${ri}-${i}"></canvas>
-        </div>`).join('')}
-    </div>`;
+  // Agrupa por setor
+  const bySetor = {};
+  entries.forEach(r => {
+    const s = r.setor || 'Sem setor';
+    if (!bySetor[s]) bySetor[s] = [];
+    bySetor[s].push(r);
   });
+
+  // Conta indicadores faltantes
+  const enviaram = entries.length;
+  const faltam = LEADERS.filter(l => !entries.find(e => String(e.leader_id) === String(l.id)));
+
+  let html = `<div class="modal-title">📈 Indicadores por Setor</div>`;
+  html += `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+    <span class="chip chip-g">${enviaram} líder${enviaram!==1?'es':''} enviou</span>
+    ${faltam.length ? `<span class="chip" style="background:#FEF3C7;color:#92400E">${faltam.map(l=>l.name).join(', ')} ainda não enviou${faltam.length>1?'m':''}</span>` : ''}
+  </div>`;
+
+  let chartIdx = 0;
+  const allCharts = [];
+
+  Object.entries(bySetor).sort(([a],[b]) => a.localeCompare(b)).forEach(([setor, leaders]) => {
+    html += `<div style="margin-bottom:8px;padding:6px 12px;background:var(--p);color:#fff;border-radius:6px;font-weight:700;font-family:Montserrat,sans-serif;font-size:13px">${escHtml(setor)}</div>`;
+    leaders.forEach(r => {
+      const slots = [1,2,3].map(i => r[`ind${i}`]).filter(Boolean);
+      const ci = chartIdx;
+      html += `<div class="resp-card" style="margin-bottom:10px">
+        <div class="resp-card-header">
+          <div class="num-badge">${escHtml(r.leader_name?.charAt(0)||'?')}</div>
+          <div><div class="resp-card-name">${escHtml(r.leader_name)}</div><div class="resp-card-setor">${fmtDate(r.submitted_at)}</div></div>
+        </div>
+        ${slots.map((ind, i) => `
+          <div class="ind-display">
+            <div class="ind-display-name">${escHtml(ind.nome)} ${indTrendBadge(ind.tendencia)}</div>
+            <div class="ind-display-vals">
+              <span>Atual: <strong>${escHtml(String(ind.valor_atual))} ${escHtml(ind.unidade)}</strong></span>
+              <span>${escHtml(ind.base)}: <strong>${escHtml(String(ind.valor_base))} ${escHtml(ind.unidade)}</strong></span>
+            </div>
+            <canvas class="ind-chart" id="ind-chart-${ci}-${i}"></canvas>
+          </div>`).join('')}
+      </div>`;
+      allCharts.push({ r, ci });
+      chartIdx++;
+    });
+  });
+
   $id('modal-content').innerHTML = html;
   show('modal');
 
-  entries.forEach((r, ri) => {
+  allCharts.forEach(({ r, ci }) => {
     const slots = [1,2,3].map(i => r[`ind${i}`]).filter(Boolean);
     slots.forEach((ind, i) => {
-      const canvas = $id(`ind-chart-${ri}-${i}`);
+      const canvas = $id(`ind-chart-${ci}-${i}`);
       if (!canvas) return;
       const atual = parseFloat(String(ind.valor_atual).replace(',', '.')) || 0;
-      const base = parseFloat(String(ind.valor_base).replace(',', '.')) || 0;
+      const base  = parseFloat(String(ind.valor_base).replace(',', '.'))  || 0;
       new Chart(canvas, {
         type: 'bar',
         data: {
@@ -1710,6 +1739,35 @@ async function adminViewIndicadores() {
       });
     });
   });
+}
+
+function adminViewProblemas() {
+  if (!S.problemas.length) { toast('Nenhum problema cadastrado ainda.', 'info'); return; }
+  const bySetor = {};
+  S.problemas.forEach(p => {
+    const s = p.setor_autor || 'Sem setor';
+    if (!bySetor[s]) bySetor[s] = [];
+    bySetor[s].push(p);
+  });
+
+  let html = `<div class="modal-title">📋 Problemas e Conflitos (${S.problemas.length})</div>`;
+  Object.entries(bySetor).sort(([a],[b]) => a.localeCompare(b)).forEach(([setor, probs]) => {
+    html += `<div style="margin-bottom:8px;padding:6px 12px;background:var(--p);color:#fff;border-radius:6px;font-weight:700;font-family:Montserrat,sans-serif;font-size:13px">${escHtml(setor)}</div>`;
+    probs.forEach((p, i) => {
+      html += `<div class="my-card${p.tipo==='conflito'?' conflito-card':''}" style="margin-bottom:8px">
+        <div class="num-badge">${i+1}</div>
+        <div class="my-card-body">
+          <div class="my-card-title">${escHtml(p.titulo)}</div>
+          <div class="my-card-meta">${tipoChip(p)} <span class="chip chip-a">${escHtml(p.setor_responsavel)}</span> · <strong>${escHtml(p.leader_name)}</strong> · ${fmtDate(p.created_at)}</div>
+          ${p.descricao ? `<div style="margin-top:6px;font-size:13px;color:var(--text)">${escHtml(p.descricao)}</div>` : ''}
+          ${p.impacto   ? `<div style="margin-top:4px;font-size:12px;color:var(--muted)"><strong>Impacto:</strong> ${escHtml(p.impacto)}</div>` : ''}
+        </div>
+      </div>`;
+    });
+  });
+
+  $id('modal-content').innerHTML = html;
+  show('modal');
 }
 
 async function adminViewCompromissos() {
