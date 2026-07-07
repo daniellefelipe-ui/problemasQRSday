@@ -477,11 +477,16 @@ async function loadEvento() {
 }
 
 async function loadProblemas() {
-  const snap = await db.ref('problemas').get();
-  S.problemas = [];
-  if (snap.exists()) {
-    snap.forEach(c => S.problemas.push({ id: c.key, ...c.val() }));
-    S.problemas.sort((a,b) => a.created_at - b.created_at);
+  try {
+    const snap = await db.ref('problemas').get();
+    S.problemas = [];
+    if (snap.exists()) {
+      snap.forEach(c => { if (c.val()) S.problemas.push({ id: c.key, ...c.val() }); });
+      S.problemas.sort((a,b) => (a.created_at||0) - (b.created_at||0));
+    }
+  } catch(e) {
+    console.error('loadProblemas:', e);
+    if (e.code === 'PERMISSION_DENIED') toast('Sem permissão para ler os problemas. Verifique as regras do Firebase.', 'err');
   }
 }
 
@@ -1251,10 +1256,22 @@ function renderSubmissao() {
     <div id="tab-meus" hidden>${renderMyProblems(mine)}</div>
     ${adminPanel}`;
 
-  document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', async () => {
     document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     tabKeys.forEach(t => { const el=$id(`tab-${t}`); if(el) el.hidden=(t!==btn.dataset.tab); });
+    // Ao clicar em "Meus", recarrega do Firebase para garantir dados atualizados
+    if (btn.dataset.tab === 'meus') {
+      await loadProblemas();
+      const fresh = S.problemas.filter(p => Number(p.leader_id) === Number(S.leader.id));
+      const panel = $id('tab-meus');
+      if (panel) {
+        panel.innerHTML = renderMyProblems(fresh);
+        const tabBtn = document.querySelector('.tab[data-tab="meus"]');
+        if (tabBtn) tabBtn.textContent = `📋 Meus (${fresh.length})`;
+        bindMeusActions();
+      }
+    }
   }));
 
   document.querySelectorAll('#toggle-tipo-entrada .tipo-card').forEach(btn => btn.addEventListener('click', () => {
@@ -1306,12 +1323,15 @@ function renderSubmissao() {
     } catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Salvar'; }
   });
 
+  bindMeusActions();
+}
+
+function bindMeusActions() {
   document.querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', async () => {
     if (!confirm('Remover este problema?')) return;
     try { await deleteProblem(btn.dataset.delete); toast('Removido.', 'info'); await loadProblemas(); renderSubmissao(); }
     catch(e) { toast('Erro ao remover.', 'err'); }
   }));
-
   document.querySelectorAll('[data-view]').forEach(btn =>
     btn.addEventListener('click', () => openModal(S.problemas.find(p => p.id === btn.dataset.view))));
 }
