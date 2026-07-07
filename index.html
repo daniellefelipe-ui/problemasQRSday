@@ -1233,7 +1233,7 @@ function renderSubmissao() {
         });
       }
       toast(tipo === 'conflito' ? 'Conflito cadastrado!' : 'Problema cadastrado!', 'ok');
-      await loadProblemas(); renderSubmissao();
+      await loadProblemas(); await renderPhaseContent('submissao');
     } catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Salvar'; }
   });
 
@@ -1741,7 +1741,8 @@ async function adminViewIndicadores() {
   });
 }
 
-function adminViewProblemas() {
+async function adminViewProblemas() {
+  await loadProblemas();
   if (!S.problemas.length) { toast('Nenhum problema cadastrado ainda.', 'info'); return; }
   const bySetor = {};
   S.problemas.forEach(p => {
@@ -1996,6 +1997,7 @@ async function renderPhaseContent(f) {
 
 async function navigateToPhase(f) {
   S.viewFase = f;
+  await loadProblemas();
   await loadMyPreQrs(); await loadMyIndicadores();
   await loadMyAvaliacoes(); await loadMyCompromisso();
   await renderPhaseContent(f);
