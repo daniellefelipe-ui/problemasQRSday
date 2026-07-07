@@ -727,8 +727,10 @@ async function renderAdmin() {
   btns += `<button class="btn btn-outline" id="btn-view-ind">📈 Ver Indicadores</button>`;
   btns += `<button class="btn btn-outline" id="btn-view-prob">📋 Ver Problemas</button>`;
   btns += `<button class="btn btn-outline" id="btn-view-comp">👁 Ver Compromissos</button>`;
-  if (f === 'votacao') {
+  if (f === 'votacao')
     btns += `<button class="btn btn-primary" id="btn-admin-votar">🗳 Votar agora</button>`;
+  // Botão de abrir/fechar votação visível sempre que admin visualiza a fase de votação
+  if (f === 'votacao' || S.viewFase === 'votacao') {
     const aberta = S.evento.votacao_aberta;
     btns += `<button class="btn ${aberta ? 'btn-danger' : 'btn-green'}" id="btn-toggle-votacao">${aberta ? '🔒 Fechar Votação' : '🔓 Abrir Votação'}</button>`;
   }
@@ -2138,6 +2140,7 @@ async function navigateToPhase(f) {
   await loadProblemas();
   await loadMyPreQrs(); await loadMyIndicadores();
   await loadMyAvaliacoes(); await loadMyCompromisso();
+  if (S.leader.isAdmin) await renderAdmin();
   await renderPhaseContent(f);
 }
 
