@@ -2001,12 +2001,12 @@ $id('btn-enter').addEventListener('click', async () => {
     // onAuthStateChanged cuida do resto
   } catch(e) {
     btn.disabled=false; btn.textContent='Entrar';
-    if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
-      toast('Senha incorreta.', 'err');
+    if (['auth/wrong-password','auth/invalid-credential','auth/invalid-login-credentials'].includes(e.code)) {
+      toast('Senha incorreta. Verifique e tente novamente.', 'err');
     } else if (e.code === 'auth/user-not-found') {
       toast('Conta não encontrada. Peça ao admin para criar as contas.', 'err');
     } else {
-      toast('Erro ao entrar. Tente novamente.', 'err');
+      toast('Erro ao entrar: ' + e.code, 'err');
       console.error(e);
     }
     $id('inp-senha').value = ''; $id('inp-senha').focus();
