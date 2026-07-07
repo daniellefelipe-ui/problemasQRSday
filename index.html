@@ -569,7 +569,8 @@ async function saveAvaliacao(problemaId, impacto, urgencia, controle) {
 }
 
 async function submitProblem(data) {
-  await db.ref('problemas').push({ ...data, leader_id: S.leader.id, leader_name: S.leader.name, setor_autor: S.leader.setor, created_at: Date.now() });
+  const ref = await db.ref('problemas').push({ ...data, leader_id: S.leader.id, leader_name: S.leader.name, setor_autor: S.leader.setor, created_at: Date.now() });
+  return ref.key;
 }
 
 async function deleteProblem(id) {
@@ -1271,6 +1272,7 @@ function renderSubmissao() {
     const tipo = f.dataset.tipo;
     btn.disabled=true; btn.textContent='Salvando…';
     try {
+      let probData;
       if (tipo === 'conflito') {
         const titulo = f.titulo_conflito.value.trim(), setor_responsavel = f.setor_responsavel_conflito.value;
         const tensao = f.tensao.value.trim(), impacto_conflito = f.impacto_conflito.value.trim();
@@ -1278,9 +1280,9 @@ function renderSubmissao() {
         if (!titulo || !setor_responsavel || !tensao || !impacto_conflito || !acordo || !dono) {
           toast('Preencha todos os campos do conflito.', 'err'); btn.disabled=false; btn.textContent='Salvar'; return;
         }
-        await submitProblem({ tipo:'conflito', titulo, setor_responsavel, tensao, impacto_conflito, acordo, dono });
+        probData = { tipo:'conflito', titulo, setor_responsavel, tensao, impacto_conflito, acordo, dono };
       } else {
-        await submitProblem({
+        probData = {
           tipo:'problema',
           titulo: f.titulo.value.trim(), setor_responsavel: f.setor_responsavel.value,
           descricao_resumida: f.descricao_resumida.value.trim(),
@@ -1288,13 +1290,19 @@ function renderSubmissao() {
           impacto_externo: f.impacto_externo.value.trim(),
           custo_direto: f.custo_direto.value.trim(),
           custo_oportunidade: f.custo_oportunidade.value.trim(),
-        });
+        };
       }
+      const key = await submitProblem(probData);
+      // Atualização otimista: adiciona imediatamente em S.problemas com o key real do Firebase
+      const created_at = Date.now();
+      S.problemas.push({ id: key, ...probData, leader_id: S.leader.id, leader_name: S.leader.name, setor_autor: S.leader.setor, created_at });
+      S.problemas.sort((a,b) => (a.created_at||0) - (b.created_at||0));
       toast(tipo === 'conflito' ? 'Conflito cadastrado!' : 'Problema cadastrado!', 'ok');
-      await loadProblemas(); await renderPhaseContent('submissao');
-      // Abre a aba "Meus" para o líder ver o que foi salvo
+      await renderPhaseContent('submissao');
       const tabMeus = document.querySelector('.tab[data-tab="meus"]');
       if (tabMeus) tabMeus.click();
+      // Atualiza em background para garantir consistência com Firebase
+      loadProblemas().catch(() => {});
     } catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Salvar'; }
   });
 
