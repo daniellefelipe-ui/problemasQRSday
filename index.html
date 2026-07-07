@@ -1392,9 +1392,21 @@ function renderAllProblems() {
 //  RENDER — VOTAÇÃO (por critérios)
 // ╚══════════════════════════════════════════════════════════╝
 async function renderVotacao() {
-  // Garante dados frescos antes de renderizar
-  await loadProblemas();
-  await loadMyAvaliacoes();
+  // Leitura direta do Firebase, sem depender de S.problemas
+  const [probSnap, avSnap] = await Promise.all([
+    db.ref('problemas').get(),
+    db.ref('avaliacoes').get(),
+  ]);
+  S.problemas = [];
+  if (probSnap.exists()) {
+    probSnap.forEach(c => { if (c.val()) S.problemas.push({ id: c.key, ...c.val() }); });
+    S.problemas.sort((a,b) => (a.created_at||0) - (b.created_at||0));
+  }
+  S.myAvaliacoes = {};
+  if (avSnap.exists()) avSnap.forEach(c => {
+    const v = c.val();
+    if (v && Number(v.leader_id) === Number(S.leader.id)) S.myAvaliacoes[v.problema_id] = v;
+  });
   const rated = Object.keys(S.myAvaliacoes).length;
   const total = S.problemas.length;
   show('sticky-bar');
