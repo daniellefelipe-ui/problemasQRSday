@@ -596,6 +596,15 @@ async function updateFase(fase) {
   S.evento.fase = fase;
 }
 
+async function toggleVotacao() {
+  const aberta = !S.evento.votacao_aberta;
+  await db.ref('evento/votacao_aberta').set(aberta);
+  S.evento.votacao_aberta = aberta;
+  toast(aberta ? '🔓 Votação aberta! Líderes já podem avaliar.' : '🔒 Votação fechada.', 'ok');
+  await renderAdmin();
+  await renderVotacao();
+}
+
 async function getScores() {
   const snap = await db.ref('avaliacoes').get();
   const scores = {};
@@ -718,8 +727,11 @@ async function renderAdmin() {
   btns += `<button class="btn btn-outline" id="btn-view-ind">📈 Ver Indicadores</button>`;
   btns += `<button class="btn btn-outline" id="btn-view-prob">📋 Ver Problemas</button>`;
   btns += `<button class="btn btn-outline" id="btn-view-comp">👁 Ver Compromissos</button>`;
-  if (f === 'votacao')
+  if (f === 'votacao') {
     btns += `<button class="btn btn-primary" id="btn-admin-votar">🗳 Votar agora</button>`;
+    const aberta = S.evento.votacao_aberta;
+    btns += `<button class="btn ${aberta ? 'btn-danger' : 'btn-green'}" id="btn-toggle-votacao">${aberta ? '🔒 Fechar Votação' : '🔓 Abrir Votação'}</button>`;
+  }
 
   $id('admin-actions').innerHTML = btns;
 
@@ -735,6 +747,7 @@ async function renderAdmin() {
   $id('btn-view-prob')?.addEventListener('click', adminViewProblemas);
   $id('btn-view-comp')?.addEventListener('click', adminViewCompromissos);
   $id('btn-admin-votar')?.addEventListener('click', async () => { await renderVotacao(); window.scrollTo({top:$id('content-area').offsetTop, behavior:'smooth'}); });
+  $id('btn-toggle-votacao')?.addEventListener('click', toggleVotacao);
 
   if (f === 'votacao') await renderVotacaoRanking(); else if ($id('admin-ranking-panel')) hide('admin-ranking-panel');
 }
@@ -1407,17 +1420,20 @@ async function renderVotacao() {
     const v = c.val();
     if (v && Number(v.leader_id) === Number(S.leader.id)) S.myAvaliacoes[v.problema_id] = v;
   });
+  const votacaoAberta = !!S.evento.votacao_aberta;
   const rated = Object.keys(S.myAvaliacoes).length;
   const total = S.problemas.length;
   show('sticky-bar');
-  $id('sticky-bar').innerHTML = `<div style="background:var(--pd);color:#fff;padding:9px 24px;text-align:center;font-size:14px">
-    <strong style="font-family:Montserrat,sans-serif;font-size:18px">${rated}</strong>/${total} problemas avaliados
+  $id('sticky-bar').innerHTML = `<div style="background:${votacaoAberta?'var(--pd)':'#64748B'};color:#fff;padding:9px 24px;text-align:center;font-size:14px">
+    ${votacaoAberta
+      ? `<strong style="font-family:Montserrat,sans-serif;font-size:18px">${rated}</strong>/${total} problemas avaliados`
+      : '🔒 Votação ainda não foi aberta — aguarde o sinal da facilitadora'}
   </div>`;
 
   $id('content-area').innerHTML = `
     ${phaseProgress()}
     <div class="sec-title">Avalie os Problemas</div>
-    <div class="sec-sub">Para cada problema, dê uma nota de 1 a 3 em três critérios. O score é o produto das três notas (máx. 27). Clique em "Avaliar" para abrir o formulário.</div>
+    <div class="sec-sub">${votacaoAberta ? 'Para cada problema, dê uma nota de 1 a 3 em três critérios. O score é o produto das três notas (máx. 27). Clique em "Avaliar" para abrir o formulário.' : 'A votação será aberta pela facilitadora no momento certo. Aproveite para ler os problemas abaixo.'}</div>
     <div class="info-box blue">
       <strong>Critérios de avaliação:</strong><br>
       🎯 <strong>Impacto</strong> — Quanto isso afeta resultado, cliente ou equipe?<br>
@@ -1450,9 +1466,9 @@ function renderRatingCards() {
           <div class="score-preview" style="margin-top:6px">
             🎯${av.impacto} ⚡${av.urgencia} 🔧${av.controle} · <strong>Score: ${av.score}/27</strong>
           </div></div>` : '<span></span>'}
-        <button class="btn ${av?'btn-outline':'btn-primary'} btn-sm" data-rate="${p.id}">
-          ${av ? '✏️ Reeditar' : '🎯 Avaliar'}
-        </button>
+        ${votacaoAberta
+          ? `<button class="btn ${av?'btn-outline':'btn-primary'} btn-sm" data-rate="${p.id}">${av ? '✏️ Reeditar' : '🎯 Avaliar'}</button>`
+          : `<button class="btn btn-outline btn-sm" disabled style="opacity:.45;cursor:not-allowed">🔒 Aguardando abertura</button>`}
       </div>
     </div>`;
   }).join('');
