@@ -109,6 +109,7 @@
     .ind-tip{background:#E6FFFA;border:1px solid #99F6E4;border-radius:8px;padding:11px 14px;font-size:13px;color:#0F766E;margin-bottom:16px;line-height:1.55}
     .ind-row{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px}
     .ind-row2{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:12px;margin-top:4px}
+    .draft-ind{font-size:12px;color:var(--g);opacity:0;transition:opacity .3s;margin-left:10px}
     .ind-display{background:var(--bg);border-radius:8px;padding:16px 18px;margin-bottom:10px}
     .ind-display-name{font-size:14px;font-weight:700;margin-bottom:6px}
     .ind-display-vals{display:flex;gap:18px;font-size:13px;color:var(--muted)}
@@ -427,6 +428,25 @@ let S = {
   myPreQrs: null, myIndicadores: null,
   myAvaliacoes: {}, myCompromisso: null,
 };
+
+// ╔══════════════════════════════════════════════════════════╗
+//  AUTO-SAVE (rascunho em localStorage)
+// ╚══════════════════════════════════════════════════════════╝
+function draftKey(tipo) { return `qrsday_draft_${tipo}_${S.leader?.id}`; }
+function saveDraft(tipo, data) { try { localStorage.setItem(draftKey(tipo), JSON.stringify(data)); } catch {} }
+function loadDraft(tipo) { try { return JSON.parse(localStorage.getItem(draftKey(tipo))); } catch { return null; } }
+function clearDraft(tipo) { try { localStorage.removeItem(draftKey(tipo)); } catch {} }
+
+function bindAutosave(tipo, formEl, getDataFn) {
+  const ind = formEl.querySelector('.draft-ind');
+  let timer;
+  const doSave = () => {
+    saveDraft(tipo, getDataFn(formEl));
+    if (ind) { ind.textContent = '✓ Rascunho salvo'; ind.style.opacity = '1'; clearTimeout(ind._t); ind._t = setTimeout(() => ind.style.opacity='0', 2500); }
+  };
+  formEl.addEventListener('input',  () => { clearTimeout(timer); timer = setTimeout(doSave, 900); });
+  formEl.addEventListener('change', () => { clearTimeout(timer); timer = setTimeout(doSave, 300); });
+}
 
 // ╔══════════════════════════════════════════════════════════╗
 //  UTILIDADES
@@ -966,16 +986,26 @@ function renderPreQrs() {
       <div class="sec-sub">Responda antes da reunião. Suas respostas guiarão as discussões do dia.</div>
       <div class="info-box blue"><strong>Dica:</strong> Seja direto e honesto. O objetivo é chegar ao QRS Day preparado para decidir, não apenas para relatar.</div>
       <form id="form-preqrs">${fields}
-        <button type="submit" class="btn btn-primary" style="margin-top:8px">💾 Enviar respostas</button>
+        <div style="display:flex;align-items:center;margin-top:8px">
+          <button type="submit" class="btn btn-primary">💾 Enviar respostas</button>
+          <span class="draft-ind"></span>
+        </div>
       </form>`;
 
-    $id('form-preqrs').addEventListener('submit', async (e) => {
+    // Pré-preenche com rascunho salvo
+    const draftPq = loadDraft('preqrs');
+    if (draftPq) PRE_QRS_QUESTIONS.forEach(q => { const el = $id('form-preqrs').elements[q.key]; if (el && draftPq[q.key]) el.value = draftPq[q.key]; });
+
+    const formPq = $id('form-preqrs');
+    bindAutosave('preqrs', formPq, f => { const d={}; PRE_QRS_QUESTIONS.forEach(q => { d[q.key] = f.elements[q.key]?.value || ''; }); return d; });
+
+    formPq.addEventListener('submit', async (e) => {
       e.preventDefault();
       const f = e.target, btn = f.querySelector('[type=submit]');
       btn.disabled = true; btn.textContent = 'Salvando…';
       const data = {};
       PRE_QRS_QUESTIONS.forEach(q => { data[q.key] = f[q.key]?.value.trim() || ''; });
-      try { await savePreQrs(data); toast('Respostas salvas!', 'ok'); await renderPhaseContent('pre_qrs'); }
+      try { await savePreQrs(data); clearDraft('preqrs'); toast('Respostas salvas!', 'ok'); await renderPhaseContent('pre_qrs'); }
       catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Enviar respostas'; }
     });
   }
@@ -1145,8 +1175,19 @@ function renderIndicadores() {
       <div class="sec-sub">Compartilhe até 3 indicadores do seu setor neste trimestre.</div>
       <div class="info-box blue"><strong>Dica:</strong> Escolha números que mostrem a real direção do seu setor — para o bem ou para o mal. Indicadores servem para decidir, não para impressionar.</div>
       <form id="form-ind">${slots}
-        <button type="submit" class="btn btn-primary" style="margin-top:8px">💾 Enviar indicadores</button>
+        <div style="display:flex;align-items:center;margin-top:8px">
+          <button type="submit" class="btn btn-primary">💾 Enviar indicadores</button>
+          <span class="draft-ind"></span>
+        </div>
       </form>`;
+
+    // Pré-preenche com rascunho salvo
+    const draftInd = loadDraft('ind');
+    if (draftInd) {
+      const fi = $id('form-ind');
+      Object.entries(draftInd).forEach(([k,v]) => { const el = fi.elements[k]; if (el) el.value = v; });
+    }
+    bindAutosave('ind', $id('form-ind'), f => { const d={}; [0,1,2].forEach(i => ['nome','valor_atual','unidade','tendencia','base','valor_base'].forEach(k => { const el=f.elements[k+i]; if(el) d[k+i]=el.value; })); return d; });
 
     $id('form-ind').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -1165,7 +1206,7 @@ function renderIndicadores() {
         };
       });
       if (!inds[0]) { toast('Preencha ao menos o Indicador 1.', 'err'); btn.disabled=false; btn.textContent='Enviar indicadores'; return; }
-      try { await saveIndicadores(inds); toast('Indicadores salvos!', 'ok'); await renderPhaseContent('indicadores'); }
+      try { await saveIndicadores(inds); clearDraft('ind'); toast('Indicadores salvos!', 'ok'); await renderPhaseContent('indicadores'); }
       catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Enviar indicadores'; }
     });
   }
@@ -1544,26 +1585,54 @@ async function renderCompromissos() {
         <textarea id="inp-decisao-lideranca" required rows="3" placeholder="Ex: Aprovação de orçamento, definição de prioridade, contratação…"></textarea>
       </div>
     </div>
-    <button class="btn btn-green" id="btn-save-comp">💚 Registrar compromisso</button>`;
+    <div style="display:flex;align-items:center;margin-top:8px">
+      <button class="btn btn-green" id="btn-save-comp">💚 Registrar compromisso</button>
+      <span class="draft-ind" id="draft-ind-comp"></span>
+    </div>`;
   }
 
   $id('content-area').innerHTML = html;
 
-  $id('btn-save-comp')?.addEventListener('click', async () => {
-    const compromissos_assumidos = $id('inp-compromissos-assumidos')?.value.trim();
-    const comportamentos_positivos = $id('inp-comportamentos-positivos')?.value.trim();
-    const cessar_reduzir = $id('inp-cessar-reduzir')?.value.trim();
-    const decisao_lideranca = $id('inp-decisao-lideranca')?.value.trim();
-    if (!compromissos_assumidos || !comportamentos_positivos || !cessar_reduzir || !decisao_lideranca) {
-      toast('Preencha todos os campos.', 'err'); return;
+  if ($id('btn-save-comp')) {
+    // Pré-preenche com rascunho salvo
+    const draftComp = loadDraft('comp');
+    if (draftComp) {
+      ['compromissos_assumidos','comportamentos_positivos','cessar_reduzir','decisao_lideranca'].forEach(k => {
+        const el = $id('inp-' + k.replace(/_/g,'-'));
+        if (el && draftComp[k]) el.value = draftComp[k];
+      });
     }
-    const btn = $id('btn-save-comp'); btn.disabled=true; btn.textContent='Salvando…';
-    try {
-      await saveCompromisso({ compromissos_assumidos, comportamentos_positivos, cessar_reduzir, decisao_lideranca });
-      toast('Compromisso registrado!', 'ok'); await renderCompromissos();
-    }
-    catch(e) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Registrar compromisso'; }
-  });
+    // Auto-save ao digitar
+    const compFields = ['inp-compromissos-assumidos','inp-comportamentos-positivos','inp-cessar-reduzir','inp-decisao-lideranca'];
+    const compKeys   = ['compromissos_assumidos','comportamentos_positivos','cessar_reduzir','decisao_lideranca'];
+    const ind = $id('draft-ind-comp');
+    let compTimer;
+    const saveCompDraft = () => {
+      const d = {}; compKeys.forEach((k,i) => { d[k] = $id(compFields[i])?.value || ''; });
+      saveDraft('comp', d);
+      if (ind) { ind.textContent='✓ Rascunho salvo'; ind.style.opacity='1'; clearTimeout(ind._t); ind._t=setTimeout(()=>ind.style.opacity='0',2500); }
+    };
+    compFields.forEach(id => {
+      const el = $id(id);
+      if (el) { el.addEventListener('input', () => { clearTimeout(compTimer); compTimer=setTimeout(saveCompDraft,900); }); }
+    });
+
+    $id('btn-save-comp').addEventListener('click', async () => {
+      const compromissos_assumidos = $id('inp-compromissos-assumidos')?.value.trim();
+      const comportamentos_positivos = $id('inp-comportamentos-positivos')?.value.trim();
+      const cessar_reduzir = $id('inp-cessar-reduzir')?.value.trim();
+      const decisao_lideranca = $id('inp-decisao-lideranca')?.value.trim();
+      if (!compromissos_assumidos || !comportamentos_positivos || !cessar_reduzir || !decisao_lideranca) {
+        toast('Preencha todos os campos.', 'err'); return;
+      }
+      const btn = $id('btn-save-comp'); btn.disabled=true; btn.textContent='Salvando…';
+      try {
+        await saveCompromisso({ compromissos_assumidos, comportamentos_positivos, cessar_reduzir, decisao_lideranca });
+        clearDraft('comp'); toast('Compromisso registrado!', 'ok'); await renderCompromissos();
+      }
+      catch(e) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Registrar compromisso'; }
+    });
+  }
 
   $id('btn-edit-comp')?.addEventListener('click', () => { S.myCompromisso = null; renderCompromissos(); });
 }
