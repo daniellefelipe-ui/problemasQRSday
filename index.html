@@ -1234,6 +1234,9 @@ function renderSubmissao() {
       }
       toast(tipo === 'conflito' ? 'Conflito cadastrado!' : 'Problema cadastrado!', 'ok');
       await loadProblemas(); await renderPhaseContent('submissao');
+      // Abre a aba "Meus" para o líder ver o que foi salvo
+      const tabMeus = document.querySelector('.tab[data-tab="meus"]');
+      if (tabMeus) tabMeus.click();
     } catch(err) { toast('Erro ao salvar.', 'err'); btn.disabled=false; btn.textContent='Salvar'; }
   });
 
