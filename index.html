@@ -734,7 +734,7 @@ async function renderAdmin() {
   $id('btn-view-ind')?.addEventListener('click', adminViewIndicadores);
   $id('btn-view-prob')?.addEventListener('click', adminViewProblemas);
   $id('btn-view-comp')?.addEventListener('click', adminViewCompromissos);
-  $id('btn-admin-votar')?.addEventListener('click', () => { renderVotacao(); window.scrollTo({top:$id('content-area').offsetTop, behavior:'smooth'}); });
+  $id('btn-admin-votar')?.addEventListener('click', async () => { await renderVotacao(); window.scrollTo({top:$id('content-area').offsetTop, behavior:'smooth'}); });
 
   if (f === 'votacao') await renderVotacaoRanking(); else if ($id('admin-ranking-panel')) hide('admin-ranking-panel');
 }
@@ -747,6 +747,7 @@ async function renderVotacaoRanking() {
     $id('admin-panel').appendChild(panel);
   }
   show('admin-ranking-panel');
+  await loadProblemas();
   const scores = await getScores();
   const ranked = [...S.problemas].sort((a,b) => (scores[b.id]?.total||0) - (scores[a.id]?.total||0));
   const maxScore = scores[ranked[0]?.id]?.total || 1;
@@ -1390,7 +1391,10 @@ function renderAllProblems() {
 // ╔══════════════════════════════════════════════════════════╗
 //  RENDER — VOTAÇÃO (por critérios)
 // ╚══════════════════════════════════════════════════════════╝
-function renderVotacao() {
+async function renderVotacao() {
+  // Garante dados frescos antes de renderizar
+  await loadProblemas();
+  await loadMyAvaliacoes();
   const rated = Object.keys(S.myAvaliacoes).length;
   const total = S.problemas.length;
   show('sticky-bar');
@@ -2095,7 +2099,7 @@ async function renderPhaseContent(f) {
   else if (f === 'pre_qrs')       renderPreQrs();
   else if (f === 'indicadores')   renderIndicadores();
   else if (f === 'submissao')     renderSubmissao();
-  else if (f === 'votacao')       renderVotacao();
+  else if (f === 'votacao')       await renderVotacao();
   else if (f === 'compromissos')  await renderCompromissos();
   else if (f === 'encerrado')     await renderEncerrado();
   bindPhaseProgressNav();
