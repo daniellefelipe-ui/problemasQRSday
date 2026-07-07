@@ -1736,12 +1736,16 @@ async function adminViewPreQrs() {
 }
 
 async function adminViewIndicadores() {
+  // Leitura direta do Firebase — garante dados frescos de todos os líderes
   const snap = await db.ref('indicadores').get();
   if (!snap.exists()) { toast('Nenhum indicador enviado ainda.', 'info'); return; }
-  const entries = [];
-  snap.forEach(child => entries.push(child.val()));
 
-  // Agrupa por setor
+  const entries = [];
+  snap.forEach(child => { if (child.val()) entries.push(child.val()); });
+
+  const faltam = LEADERS.filter(l => !entries.find(e => String(e.leader_id) === String(l.id)));
+
+  // Agrupa por setor, ordenado
   const bySetor = {};
   entries.forEach(r => {
     const s = r.setor || 'Sem setor';
@@ -1749,33 +1753,39 @@ async function adminViewIndicadores() {
     bySetor[s].push(r);
   });
 
-  // Conta indicadores faltantes
-  const enviaram = entries.length;
-  const faltam = LEADERS.filter(l => !entries.find(e => String(e.leader_id) === String(l.id)));
-
-  let html = `<div class="modal-title">📈 Indicadores por Setor</div>`;
-  html += `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-    <span class="chip chip-g">${enviaram} líder${enviaram!==1?'es':''} enviou</span>
-    ${faltam.length ? `<span class="chip" style="background:#FEF3C7;color:#92400E">${faltam.map(l=>l.name).join(', ')} ainda não enviou${faltam.length>1?'m':''}</span>` : ''}
-  </div>`;
+  hide('sticky-bar');
+  let html = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" id="btn-back-ind">← Voltar</button>
+      <div style="font-family:Montserrat,sans-serif;font-size:18px;font-weight:700;color:var(--p)">📈 Painel de Indicadores</div>
+      <span class="chip chip-g">${entries.length}/10 enviados</span>
+      ${faltam.length ? `<span class="chip" style="background:#FEF3C7;color:#92400E;font-size:11px">Pendentes: ${faltam.map(l=>l.name).join(', ')}</span>` : '<span class="chip chip-g">✓ Todos enviaram</span>'}
+    </div>`;
 
   let chartIdx = 0;
   const allCharts = [];
 
   Object.entries(bySetor).sort(([a],[b]) => a.localeCompare(b)).forEach(([setor, leaders]) => {
-    html += `<div style="margin-bottom:8px;padding:6px 12px;background:var(--p);color:#fff;border-radius:6px;font-weight:700;font-family:Montserrat,sans-serif;font-size:13px">${escHtml(setor)}</div>`;
+    html += `<div style="margin:18px 0 10px;padding:7px 14px;background:var(--p);color:#fff;border-radius:8px;font-weight:700;font-family:Montserrat,sans-serif;font-size:14px;letter-spacing:.3px">
+      ${escHtml(setor)}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:4px">`;
+
     leaders.forEach(r => {
       const slots = [1,2,3].map(i => r[`ind${i}`]).filter(Boolean);
       const ci = chartIdx;
-      html += `<div class="resp-card" style="margin-bottom:10px">
+      html += `<div class="resp-card" style="margin:0">
         <div class="resp-card-header">
           <div class="num-badge">${escHtml(r.leader_name?.charAt(0)||'?')}</div>
-          <div><div class="resp-card-name">${escHtml(r.leader_name)}</div><div class="resp-card-setor">${fmtDate(r.submitted_at)}</div></div>
+          <div>
+            <div class="resp-card-name">${escHtml(r.leader_name)}</div>
+            <div class="resp-card-setor">${escHtml(r.setor)} · ${fmtDate(r.submitted_at)}</div>
+          </div>
         </div>
         ${slots.map((ind, i) => `
-          <div class="ind-display">
+          <div class="ind-display" style="margin-bottom:8px">
             <div class="ind-display-name">${escHtml(ind.nome)} ${indTrendBadge(ind.tendencia)}</div>
-            <div class="ind-display-vals">
+            <div class="ind-display-vals" style="margin-bottom:6px">
               <span>Atual: <strong>${escHtml(String(ind.valor_atual))} ${escHtml(ind.unidade)}</strong></span>
               <span>${escHtml(ind.base)}: <strong>${escHtml(String(ind.valor_base))} ${escHtml(ind.unidade)}</strong></span>
             </div>
@@ -1785,11 +1795,16 @@ async function adminViewIndicadores() {
       allCharts.push({ r, ci });
       chartIdx++;
     });
+
+    html += `</div>`;
   });
 
-  $id('modal-content').innerHTML = html;
-  show('modal');
+  $id('content-area').innerHTML = html;
+  bindPhaseProgressNav();
 
+  $id('btn-back-ind').addEventListener('click', () => renderPhaseContent(S.viewFase));
+
+  // Renderiza gráficos
   allCharts.forEach(({ r, ci }) => {
     const slots = [1,2,3].map(i => r[`ind${i}`]).filter(Boolean);
     slots.forEach((ind, i) => {
@@ -1801,7 +1816,7 @@ async function adminViewIndicadores() {
         type: 'bar',
         data: {
           labels: [ind.base, 'Atual'],
-          datasets: [{ data: [base, atual], backgroundColor: ['#94A3B8', '#0F766E'] }],
+          datasets: [{ data: [base, atual], backgroundColor: ['#94A3B8', ind.tendencia === 'melhorou' ? '#0F766E' : ind.tendencia === 'piorou' ? '#DC2626' : '#64748B'] }],
         },
         options: {
           indexAxis: 'y', responsive: true, maintainAspectRatio: false,
