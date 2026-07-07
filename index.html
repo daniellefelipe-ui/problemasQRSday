@@ -603,6 +603,7 @@ async function toggleVotacao() {
   toast(aberta ? '🔓 Votação aberta! Líderes já podem avaliar.' : '🔒 Votação fechada.', 'ok');
   await renderAdmin();
   await renderVotacao();
+  bindPhaseProgressNav();
 }
 
 async function getScores() {
@@ -748,7 +749,7 @@ async function renderAdmin() {
   $id('btn-view-ind')?.addEventListener('click', adminViewIndicadores);
   $id('btn-view-prob')?.addEventListener('click', adminViewProblemas);
   $id('btn-view-comp')?.addEventListener('click', adminViewCompromissos);
-  $id('btn-admin-votar')?.addEventListener('click', async () => { await renderVotacao(); window.scrollTo({top:$id('content-area').offsetTop, behavior:'smooth'}); });
+  $id('btn-admin-votar')?.addEventListener('click', async () => { await navigateToPhase('votacao'); window.scrollTo({top:$id('content-area').offsetTop, behavior:'smooth'}); });
   $id('btn-toggle-votacao')?.addEventListener('click', toggleVotacao);
 
   if (f === 'votacao') await renderVotacaoRanking(); else if ($id('admin-ranking-panel')) hide('admin-ranking-panel');
@@ -1449,6 +1450,7 @@ async function renderVotacao() {
 
 function renderRatingCards() {
   if (!S.problemas.length) return `<div class="empty"><div class="empty-icon">📋</div><div class="empty-t">Nenhum problema cadastrado.</div></div>`;
+  const aberta = !!S.evento.votacao_aberta;
   return S.problemas.map((p,i) => {
     const av = S.myAvaliacoes[p.id];
     return `
@@ -1468,7 +1470,7 @@ function renderRatingCards() {
           <div class="score-preview" style="margin-top:6px">
             🎯${av.impacto} ⚡${av.urgencia} 🔧${av.controle} · <strong>Score: ${av.score}/27</strong>
           </div></div>` : '<span></span>'}
-        ${votacaoAberta
+        ${aberta
           ? `<button class="btn ${av?'btn-outline':'btn-primary'} btn-sm" data-rate="${p.id}">${av ? '✏️ Reeditar' : '🎯 Avaliar'}</button>`
           : `<button class="btn btn-outline btn-sm" disabled style="opacity:.45;cursor:not-allowed">🔒 Aguardando abertura</button>`}
       </div>
