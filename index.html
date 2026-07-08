@@ -758,7 +758,8 @@ async function renderAdmin() {
   $id('btn-admin-votar')?.addEventListener('click', async () => { await navigateToPhase('votacao'); window.scrollTo({top:$id('content-area').offsetTop, behavior:'smooth'}); });
   $id('btn-toggle-votacao')?.addEventListener('click', toggleVotacao);
 
-  if (f === 'votacao') await renderVotacaoRanking(); else if ($id('admin-ranking-panel')) hide('admin-ranking-panel');
+  const votacaoPassou = PHASES.indexOf(f) >= PHASES.indexOf('votacao');
+  if (votacaoPassou) await renderVotacaoRanking(); else if ($id('admin-ranking-panel')) hide('admin-ranking-panel');
 }
 
 async function renderVotacaoRanking() {
